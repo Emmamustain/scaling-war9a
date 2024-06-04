@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import ConfirmLeavePopover from "@/components/Molecules/ConfirmActionButton";
 import { ArrowLeftToLine } from "lucide-react";
 import { getCurrentSession } from "@/utils/get-current-session";
+import EmployeeQueue from "@/components/Molecules/EmployeeQueue";
 
 interface employeeProps {
   params: { business_slug: string };
@@ -56,20 +57,6 @@ export default async function employee({ params }: employeeProps) {
   // const { service_id, name: selectedService } = serviceData;
   const serviceData = await getWorkerServiceId(worker_user_id ?? ""); //THE QUERY TO GET THE SERVICE_ID from GUICHET_SERVICES
 
-  const queueData = (await getQueue(serviceData.service_id ?? "")) ?? [];
-  const sortedQueue = queueData.sort(
-    (a, b) =>
-      a.queue_entries.updated_at.getTime() -
-      b.queue_entries.updated_at.getTime(),
-  );
-
-  const alreadyQueued =
-    (userData &&
-      sortedQueue.some(
-        (queueEntry) => queueEntry.users.user_id === userData.user_id,
-      )) ??
-    false;
-
   // const nextUser = await removeFromQueue(sortedQueue[0].users.user_id, service_id as string);
 
   return (
@@ -100,52 +87,24 @@ export default async function employee({ params }: employeeProps) {
         </div>
       </div>
 
-      {/* Queue Cards */}
-      {businessServices.length > 0 && (
-        <div className="grid w-full grid-cols-[repeat(auto-fit,minmax(400px,1fr))] gap-4 bg-neutral-200/60 p-4 pt-8">
-          {serviceData.service_id && userData && (
-            <ActionQueueWorkerSide
-              position={
-                !alreadyQueued
-                  ? sortedQueue.length + 1 // If not already in the queue, their position is at the end.
-                  : sortedQueue.findIndex(
-                      (entry) => entry.users.user_id === userData.user_id,
-                    ) + 1
-              }
+      <div className="relative bg-neutral-200/60 pt-4">
+        {/* Queue Cards */}
+        {businessServices.length > 0 && (
+          <div className="grid w-full grid-cols-[repeat(auto-fit,minmax(400px,1fr))] gap-4 bg-neutral-200/60 p-4 pt-8">
+            {serviceData.service_id && userData && (
+              <ActionQueueWorkerSide
+                service_id={serviceData.service_id}
+                user_id={userData.user_id}
+                businessSlug={slug}
+              />
+            )}
+            <EmployeeQueue
               service_id={serviceData.service_id}
-              user_id={userData.user_id}
-              alreadyQueued={alreadyQueued}
-              businessSlug={slug}
+              businessData={businessData}
             />
-          )}
-          {sortedQueue.length > 0 &&
-            sortedQueue.map((card, index) => (
-              <QueueCard
-                key={index}
-                className={
-                  card.users.user_id === userData?.user_id &&
-                  "border-[2px] border-white bg-purple-200"
-                }
-                name={card.users.username}
-                isPresent={card.queue_entries.present ?? false}
-                source={"Web"}
-                position={index + 1}
-              />
-            ))}
-
-          {sortedQueue.length === 0 && (
-            <div className="relative flex h-[157px] w-full min-w-[400px] flex-col justify-center rounded bg-white">
-              <HourglassIcon
-                size={80}
-                className="mb-2 w-full text-center text-neutral-400"
-              />
-              <p className="text-center text-xl font-bold text-neutral-400">
-                No one in the queue for the moment.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
 
       <Footer />
     </main>

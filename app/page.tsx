@@ -21,8 +21,8 @@ export default function Home() {
       </div>
 
       {/* body */}
-      <div className="flex  h-screen w-full">
-        <div className=" flex w-1/2 flex-col items-center justify-center gap-12 px-10">
+      <div className="flex  h-[calc(100vh-100px)]  w-full relative overflow-hidden">
+        <div className=" flex w-1/2 flex-col items-center justify-center gap-12 px-10 relative overflow-hidden">
           <p className="text-7xl font-bold">
             Virtual waitlists without the wait
           </p>
@@ -36,9 +36,10 @@ export default function Home() {
             <a href="#">Try it free</a>
           </div>
         </div>
+          <Image src="/images/hand.svg" height={1450} width={1450} alt="" className="absolute -right-[600px] top-[0px] contrast-[1.5] "/>
       </div>
       {/* black box */}
-      <div className="flex h-[40vh] items-center justify-center bg-neutral-800">
+      <div className="flex h-[40vh] items-center justify-center bg-neutral-900">
         <div className="flex w-[45%] flex-col items-center ">
           <p className="text-center text-5xl font-bold text-white ">
             End-to-end customer flow management built for:
@@ -72,7 +73,7 @@ export default function Home() {
           {/* left "ways to join a waitlist" */}
           <div className=" flex w-[50%] flex-col items-center ">
             {/* Accordion */}
-            <div className="mt-10 w-full pl-10">
+            <div className="w-full flex-col flex justify-center h-full pl-10">
               <Accordion
                 title={"Many ways to join a waitlist"}
                 text={
@@ -82,20 +83,22 @@ export default function Home() {
               <Accordion
                 title={"Precise wait time estimates"}
                 text={
-                  "Powered by AI, Waitwhile gives accurate wait times, so everyone knows what to expect."
+                  "Powered by AI, War9a gives accurate wait times, so everyone knows what to expect."
                 }
               />
               <Accordion
                 title={"Easy two-way communication"}
                 text={
-                  "Guests can wait from anywhere. They receive regular updates and a ping when it’s their turn. If they’re running late, they can easily text or chat and Waitwhile will take care of the rest."
+                  "Guests can wait from anywhere. They receive regular updates and a ping when it’s their turn. If they’re running late, they can easily text or chat and War9a will take care of the rest."
                 }
                 divider={false}
               />
             </div>
           </div>
           {/* right "animation" */}
-          <div className="w-[50%] bg-blue-200"></div>
+          <div className="w-[50%]">
+           <Image src="/images/time.svg" height={1450} width={1450} alt="" className="h-full w-full  hue-rotate-120 "/>
+          </div>
         </div>
       </div>
       {/* forth box */}
@@ -111,10 +114,12 @@ export default function Home() {
         {/* second part  */}
         <div className="mt-[40px] flex h-[60vh] w-full ">
           {/* left "animation" */}
-          <div className="w-[50%] bg-green-200 "></div>
+           <div className="w-[50%] flex justify-center">
+           <Image src="/images/dashboard.svg"  height={1450} width={1450} alt="" className="h-[500px] w-[500px] hue-rotate-120 pt-10 "/>
+          </div>
           {/* right "Customize your waitlist " */}
-          <div className=" w-[50%] ">
-            <div className="mt-10 w-full pl-14 ">
+          <div className=" w-[50%] flex-col flex justify-center h-full  ">
+            <div className=" w-full pl-14 ">
               <Accordion
                 title={"Customize your waitlist from start to finish"}
                 text={
@@ -124,7 +129,7 @@ export default function Home() {
               <Accordion
                 title={"Waitlists and appointments – in one place"}
                 text={
-                  "Waitwhile merges walk-ins and appointments, making the wait fair for everyone. Run as many waitlists as you need – across multiple locations. Define how, where, and when your customers can join."
+                  "War9a merges walk-ins and appointments, making the wait fair for everyone. Run as many waitlists as you need – across multiple locations. Define how, where, and when your customers can join."
                 }
               />
               <Accordion
@@ -152,7 +157,7 @@ export default function Home() {
           <div className=" w-[25%] ">
             <div className="h-[55%] w-full overflow-hidden">
               <Image
-                src="/waitlist.svg"
+                src="/images/waitlist.svg"
                 width={250}
                 height={250}
                 className="object-fit h-full w-full"
@@ -163,7 +168,7 @@ export default function Home() {
               Ready to go in a matter of minutes
             </p>
             <p>
-              Set up a waitlist in no time. Waitwhile is cloud-based so there’s
+              Set up a waitlist in no time. War9a is cloud-based so there’s
               no download required. Use any device.
             </p>
           </div>
@@ -171,7 +176,7 @@ export default function Home() {
           <div className=" w-[25%] ">
             <div className="h-[55%] w-full overflow-hidden">
               <Image
-                src="/peoples.svg"
+                src="/images/peoples.svg"
                 width={250}
                 height={250}
                 className="object-fit h-full w-full"
@@ -189,7 +194,7 @@ export default function Home() {
           <div className="w-[25%] ">
             <div className="mb h-[55%] w-full overflow-hidden">
               <Image
-                src="/progress-bar.svg"
+                src="/images/progress-bar.svg"
                 width={250}
                 height={250}
                 className="object-fit h-full w-full"
@@ -201,21 +206,21 @@ export default function Home() {
             </p>
             <p>
               Use your waitlist only when you need it. With automatic capacity
-              management, Waitwhile prompts customers to wait in a virtual line
+              management, War9a prompts customers to wait in a virtual line
               when you’re full.
             </p>
           </div>
         </div>
       </div>
       {/* Second black box */}
-      <div className="flex h-[80vh] flex-col justify-between bg-neutral-800 p-8">
+      <div className="flex h-[calc(100vh-400px)] flex-col justify-between bg-neutral-900  pl-[200px] ">
         {/* text part */}
         <div className=" h-[30vh] w-[60%]">
           <p className="mb-6 mt-10 text-[#58C1A2]">
             WAITLISTS FOR ANY TYPE OF BUSINESS
           </p>
           <h4 className=" text-4xl font-bold text-white">
-            Waitwhile powers end-to-end customer flows for thousands of
+            War9a powers end-to-end customer flows for thousands of
             companies across virtually every industry around the world.
           </h4>
         </div>
@@ -293,7 +298,7 @@ export default function Home() {
           line2="perfect customer flow"
         />
         <p className="text-center text-2xl text-white ">
-          Join the thousands of companies using Waitwhile
+          Join the thousands of companies using War9a
         </p>
         <div>
           <TagButton

@@ -1,8 +1,10 @@
 import BusinessDataList from "@/components/Compounds/BusinessDataList";
 import BusinessHeader from "@/components/Compounds/BusinessHeader";
+import BusinessQueue from "@/components/Compounds/BusinessQueue";
 import Header from "@/components/Compounds/Header";
 import ActionQueueCard from "@/components/Molecules/ActionQueueCard";
 import QueueCard from "@/components/Molecules/QueueCard";
+import { toast } from "@/components/ui/use-toast";
 import {
   fetchBusinessBySlug,
   getBusinessServices,
@@ -10,6 +12,7 @@ import {
   getUserData,
 } from "@/database/queries";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/utils/supabase-server";
 import { Frown, Smile } from "lucide-react";
 import Link from "next/link";
 
@@ -56,11 +59,16 @@ export default async function BusinessPage({
     false;
 
   return (
-    <main className="flex min-h-screen flex-col px-24">
+    <main className="flex min-h-screen flex-col lg:px-24">
       <Header />
 
       {/* Business Header */}
-      <BusinessHeader name={businessData.business.name} slug={slug} />
+      <BusinessHeader
+        name={businessData.business.name}
+        slug={slug}
+        image={businessData.business.image ?? undefined}
+        secondImage={businessData.business.cover_image ?? undefined}
+      />
 
       {/* Business Info */}
       <BusinessDataList
@@ -69,10 +77,11 @@ export default async function BusinessPage({
         phone={businessData.business.phone ?? "Not Available"}
         reputation={{ positive: 120, negative: 20 }}
         description={businessData.business.description}
+        marker= {{lat: +(businessData.business.latitude ?? 0), lng: +(businessData.business.longitude ?? 0)}}
       />
 
       {/* Virtual Queues */}
-      <div className="mt-12 grid w-full grid-cols-[repeat(auto-fit,minmax(50px,1fr))] items-center gap-10 ">
+      <div className="scale-85 mt-12 grid w-full grid-cols-[repeat(auto-fit,minmax(50px,1fr))] items-center gap-2 lg:gap-10 ">
         {businessServices.length > 0 ? (
           businessServices.map((service, index) => (
             <Link
@@ -82,7 +91,7 @@ export default async function BusinessPage({
                 query: { service: service.name },
               }}
               className={cn(
-                "rounded-t-lg bg-neutral-50 p-3 text-center font-semibold capitalize text-black/30 duration-300 hover:cursor-pointer hover:bg-neutral-200/60 hover:text-black ",
+                "rounded-t-lg bg-neutral-50 p-3 text-center text-xs font-semibold capitalize text-black/30 duration-300 hover:cursor-pointer hover:bg-neutral-200/60 hover:text-black lg:text-base ",
                 selectedService === service.name &&
                   "bg-neutral-200/60 text-black",
               )}
@@ -100,7 +109,7 @@ export default async function BusinessPage({
 
       {/* Queue Cards */}
       {businessServices.length > 0 && (
-        <div className="grid w-full grid-cols-[repeat(auto-fit,minmax(400px,1fr))] gap-4 bg-neutral-200/60 p-4 pt-8">
+        <div className="grid w-full grid-cols-[repeat(auto-fit,minmax(400px,1fr))] gap-4 bg-neutral-200/60 p-1 pt-8 lg:p-4">
           {service_id && userData && (
             <ActionQueueCard
               position={
@@ -115,20 +124,7 @@ export default async function BusinessPage({
               alreadyQueued={alreadyQueued}
             />
           )}
-          {sortedQueue.length > 0 &&
-            sortedQueue.map((card, index) => (
-              <QueueCard
-                key={index}
-                className={
-                  card.users.user_id === userData?.user_id &&
-                  "border-[2px] border-white bg-purple-200"
-                }
-                name={card.users.username}
-                isPresent={card.queue_entries.present ?? false}
-                source={"Web"}
-                position={index + 1}
-              />
-            ))}
+          <BusinessQueue sortedQueue={sortedQueue} userData={userData} />
 
           {sortedQueue.length === 0 && (
             <div className="relative flex h-[157px] w-full min-w-[400px] flex-col justify-center rounded bg-white">

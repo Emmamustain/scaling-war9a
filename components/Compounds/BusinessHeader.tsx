@@ -31,8 +31,9 @@ export default function BusinessHeader({
           />
         )}
       </div>
-      <div className="-mt-12 ml-10 flex items-center gap-6">
-        <div className="z-10 h-44 w-44 overflow-hidden rounded-full border-2 bg-black">
+      <div className="mx-10 -mt-12 flex flex-col items-center gap-2 lg:flex-row lg:justify-start lg:gap-6 ">
+        {/* <div className="flex w-full justify-center lg:justify-start "> */}
+        <div className=" z-10 h-44 w-44 overflow-hidden rounded-full border-2 bg-black">
           {image ? (
             <Image
               src={
@@ -48,8 +49,11 @@ export default function BusinessHeader({
             <MinidenticonImg username={name} />
           )}
         </div>
+        {/* </div> */}
         <div className="mt-6">
-          <p className="text-2xl font-semibold">{name}</p>
+          <p className=" flex justify-center text-2xl font-semibold lg:justify-start">
+            {name}
+          </p>
           <div className="flex gap-2 opacity-60">
             <p>{"war9a.com/business/" + slug}</p>
             <Copy size={18} />

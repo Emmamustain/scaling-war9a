@@ -10,6 +10,7 @@ import {
   categories,
   guichet_services,
   guichet_workers,
+  notifications,
   queue_entries,
   services,
   user_businesses,
@@ -72,12 +73,25 @@ export async function lazyGetClosestBusinesses(
   const prepared = db
     .select()
     .from(businesses)
+    .where(
+      eq(businesses.city, placeholder("city")),
+      // and(
+      //   eq(businesses.city, users.city),
+      //   eq(users.user_id, placeholder("user_id")),
+      // ),
+    )
+
     .orderBy(businesses.created_at)
     .limit(placeholder("limit"))
     .offset(placeholder("offset"))
     .prepare("lazy-get-closest-businesses");
-
-  const query = await prepared.execute({ limit: batchSize, offset: offset });
+  const userData = await getUserData();
+  // const session = await getCurrentSession();
+  const query = await prepared.execute({
+    limit: batchSize,
+    offset: offset,
+    city: userData?.city,
+  });
   return query;
 }
 
@@ -369,27 +383,29 @@ export async function searchWorkersByName(
   return query;
 }
 
-export async function getBusinessByCategories(category_id: string) {
+export async function getBusinessByCategories(category_name: string) {
   const prepared = db
-    .select({ business_id: businesses.business_id, name: businesses.name })
+    .select()
     .from(businesses)
     .innerJoin(
       business_categories,
       eq(business_categories.business_id, businesses.business_id),
     )
-    .where(eq(business_categories.category_id, placeholder("category_id")))
+    .innerJoin(
+      categories,
+      eq(categories.category_id, business_categories.category_id),
+    )
+    .where(eq(categories.name, placeholder("category_name")))
     .prepare("get-Business-By-Categories");
 
-  const queryResult = await prepared.execute({ category_id: category_id });
-  const businessData = queryResult.map((row) => ({
-    business_id: row.business_id,
-    name: row.name,
-  }));
-
-  return businessData;
+  const queryResult = await prepared.execute({ category_name: category_name });
+  return queryResult;
 }
 
-export async function getUserRoleAndBusinessSlug(user_id: string) {
+export async function getUserRoleAndBusinessSlug(user_id: string | null) {
+  if (!user_id) {
+    return null;
+  }
   try {
     const userData = await db
       .select({ role: users.role })
@@ -460,15 +476,18 @@ export async function getAverageTime(service_id: string) {
   return estimated_waiting_time;
 }
 
-// export async function fetchServiceBybusinessId(business_id:string) {
-//   const query = await db
-//   .select({service_id: business_services.service_id})
-//   .from(business_services)
-//   .leftJoin(services, eq(business_services.service_id, services.service_id),
-// )
-//   .where(eq(business_services.business_id, placeholder("business_id")))
-//   .prepare("get-service-id-by-business-id")
-//    const mutation = await query.execute({business_id: business_id});
-//    return mutation[0].service_id;
-
-// }
+export async function getNotification(user_id: string) {
+  if (!user_id) return [];
+  const getNotif = await db
+    .select()
+    .from(notifications)
+    .where(
+      and(
+        eq(notifications.to_user_id, placeholder("to_user_id")),
+        eq(notifications.consumed, false),
+      ),
+    )
+    .prepare("get-notifications");
+  const revceiveNotif = await getNotif.execute({ to_user_id: user_id });
+  return revceiveNotif;
+}

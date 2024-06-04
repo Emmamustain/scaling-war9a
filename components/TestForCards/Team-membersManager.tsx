@@ -34,10 +34,10 @@ type UnwrapPromise<T> = T extends Promise<infer U> ? U : T;
 
 type employeesData = UnwrapPromise<ReturnType<typeof getBusinessEmployees>>;
 
-interface DemoTeamMembersProps {
+interface DemoTeamMembersManagerProps {
   employees: employeesData;
 }
-export function DemoTeamMembers({ employees }: DemoTeamMembersProps) {
+export function DemoTeamMembersManager({ employees }: DemoTeamMembersManagerProps) {
   return (
     <Card className="mt-4">
       <CardHeader>
@@ -67,7 +67,7 @@ export function DemoTeamMembers({ employees }: DemoTeamMembersProps) {
                   </p>
                 </div>
               </div>
-              <ChooseRole employee={employee} />
+             
          
             </div>
           ))}

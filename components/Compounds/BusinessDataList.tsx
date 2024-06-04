@@ -5,6 +5,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Badge } from "../ui/badge";
+import Map from "@/components/Molecules/Map"
 
 interface BusinessDataListProps {
   name: string;
@@ -15,6 +16,7 @@ interface BusinessDataListProps {
   phone: string;
   reputation: { positive: number; negative: number };
   description: string;
+  marker: {lat:number, lng: number};
 }
 
 export default function BusinessDataList({
@@ -23,6 +25,7 @@ export default function BusinessDataList({
   phone,
   reputation,
   description,
+  marker,
 }: BusinessDataListProps) {
   return (
     <div className="mt-6 px-0 sm:px-6">
@@ -91,6 +94,10 @@ export default function BusinessDataList({
                 </dd>
               </div>
             </dl>
+            <div className="h-[800px] w-[800px] bg-red-500">
+
+                  <Map marker={marker} center={marker}/>
+            </div>
           </div>
         </CollapsibleContent>
       </Collapsible>

@@ -32,7 +32,7 @@ export default function ActionQueueCard({
   return (
     <div
       className={cn(
-        "relative flex w-full min-w-[400px] flex-col justify-between rounded bg-emerald-200/60",
+        "relative flex h-fit min-h-[150px] w-full min-w-[400px] flex-col justify-center rounded bg-emerald-200/60 lg:h-full lg:min-h-fit lg:justify-between",
         alreadyQueued && "bg-red-200/60",
       )}
     >

@@ -20,16 +20,17 @@ import { getCurrentSession } from "@/utils/get-current-session";
 export interface ActionQueueWorkerSideProps {
   user_id: string;
   service_id: string;
-  position: number;
-  alreadyQueued: boolean;
   businessSlug: string;
 }
 
+type UnwrapPromise<T> = T extends Promise<infer U> ? U : T;
+
+export type UserData = UnwrapPromise<ReturnType<typeof getUserData>>;
+export type QueueEntryData = UnwrapPromise<ReturnType<typeof getQueue>>;
+
 export default async function ActionQueueWorkerSide({
-  position,
   user_id,
   service_id,
-  alreadyQueued,
   businessSlug,
 }: ActionQueueWorkerSideProps) {
   const businessData = await fetchBusinessBySlug(businessSlug);
@@ -51,9 +52,18 @@ export default async function ActionQueueWorkerSide({
   const user_data = await getCurrentSession();
   console.log("userdata", user_data.data.session?.user.id);
 
+  let onlyFiveEntries = sortedQueue.filter(
+    (entry, index) => index >= 1 && index <= 5,
+  );
+
+  const nextUsers = onlyFiveEntries.map((entry) => entry.users);
+
   const nextUser = async () => {
     "use server";
-    const mutation = await removeUserFromQueue(sortedQueue[0].users.user_id);
+    const mutation = await removeUserFromQueue(
+      sortedQueue[0].users.user_id,
+      nextUsers,
+    );
     const increment = await incrementWorkerScore(
       user_data.data.session?.user.id ?? "",
     );
@@ -63,12 +73,11 @@ export default async function ActionQueueWorkerSide({
     <div
       className={cn(
         "relative flex w-full min-w-[400px] flex-col justify-between rounded bg-emerald-200/60",
-        alreadyQueued && "bg-red-200/60",
       )}
     >
       {/* Position */}
       <p className="absolute bottom-0 left-4 text-9xl font-bold opacity-10">
-        #{position - 1}
+        #0
       </p>
 
       {/* User Pic and Name */}
@@ -96,27 +105,13 @@ export default async function ActionQueueWorkerSide({
       {/* Action Button */}
       <div className="flex h-full items-center justify-end gap-4 px-6 pb-4">
         <form>
-          {!alreadyQueued ? (
-            <Button
-              className="mt-4 px-8 py-6"
-              type="submit"
-              formAction={nextUser}
-            >
-              Next
-            </Button>
-          ) : (
-            <ConfirmLeavePopover
-              buttonText={
-                <>
-                  <ArrowLeftToLine size={20} /> <p className="pl-2">Next</p>
-                </>
-              }
-              description="This action cannot be undone. Do you want to remove this client ?"
-              cancel="No"
-              confirm={"I want to remove this client"}
-              onConfirm={nextUser}
-            />
-          )}
+          <Button
+            className="mt-4 px-8 py-6"
+            type="submit"
+            formAction={nextUser}
+          >
+            Next
+          </Button>
         </form>
       </div>
     </div>

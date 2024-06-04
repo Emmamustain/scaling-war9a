@@ -41,7 +41,7 @@ export default function WorkerToBusiness({
         <div className="mx-auto w-full max-w-sm">
           <DrawerHeader>
             <DrawerTitle>Add a worker </DrawerTitle>
-            <DrawerDescription>bla bla bla</DrawerDescription>
+            <DrawerDescription>You can add a new employee by searching its users name</DrawerDescription>
           </DrawerHeader>
           <div className="p-4 pb-0">
             <div className="flex items-center justify-center space-x-2">

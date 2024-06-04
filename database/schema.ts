@@ -8,6 +8,7 @@ import {
   pgEnum,
   unique,
   decimal,
+  numeric,
 } from "drizzle-orm/pg-core";
 
 export const userRole = pgEnum("user_role", [
@@ -27,6 +28,9 @@ export const users = pgTable("users", {
   user_id: uuid("user_id").defaultRandom().primaryKey(),
   username: text("username").notNull(),
   role: userRole("role").default("regular"), // Using the role enum
+  city: text("city").notNull().default("annaba"),
+  longitude_user: numeric("longitude_user").default("0"),
+  latitude_user: numeric("latitude_user").default("0"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -42,8 +46,12 @@ export const businesses = pgTable("businesses", {
   description: text("description").notNull(),
   avgWaitTime: integer("avgWaitTime").default(0),
   location: text("location").notNull(),
+  latitude: numeric("latitude").default("0"),
+  longitude: numeric("longitude").default("0"),
   city: text("city").notNull().default("annaba"),
   zip_code: text("zipcode").notNull().default("A23000"),
+  image: text("image"),
+  cover_image: text("cover_image"),
   featured: boolean("featured").default(false),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
@@ -237,6 +245,15 @@ export const business_guichets = pgTable("business_guichets", {
   additional_attribute: text("additional_attribute"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const notifications = pgTable("notifications", {
+  notification_id: uuid("notifications_id").defaultRandom().primaryKey(),
+  to_user_id: uuid("to_user_id").references(() => users.user_id),
+  // worker_id: uuid("guichet_id").references(() => business_workers.worker_id),
+  message: text("message").notNull(),
+  consumed: boolean("consumed").default(false),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 // export const business_managers = pgTable("managers", {

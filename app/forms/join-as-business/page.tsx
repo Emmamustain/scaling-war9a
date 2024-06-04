@@ -8,7 +8,7 @@ import { redirect } from "next/navigation";
 import { SetStateAction } from "react";
 import { toast } from "@/components/ui/use-toast";
 import { createClient } from "@/utils/supabase-server";
-
+import Map from "@/components/Molecules/Map"
 async function handleSubmit(formData: FormData) {
   "use server";
   const session = await getCurrentSession();
@@ -17,6 +17,8 @@ async function handleSubmit(formData: FormData) {
   const description = String(formData.get("description"));
   const phone = String(formData.get("phone"));
   const location = String(formData.get("address"));
+  const lat = String(formData.get("lat"));
+  const lng = String(formData.get("lng"));
   const city = String(formData.get("city"));
   const zipCode = String(formData.get("zip-code"));
   const fileUpload = formData.get("file-upload");
@@ -45,6 +47,8 @@ async function handleSubmit(formData: FormData) {
     name,
     description,
     location,
+    +lat, 
+    +lng,
     phone,
     city,
     zipCode,
@@ -67,7 +71,7 @@ async function handleSubmit(formData: FormData) {
 export default function JoinAsBusiness({
   searchParams,
 }: {
-  searchParams: { error?: string; success?: string };
+  searchParams: { error?: string; success?: string, lat?: string, lng?:string, addy?:string };
 }) {
   return (
     <>
@@ -212,8 +216,40 @@ export default function JoinAsBusiness({
                       autoComplete="address"
                       className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm outline-none ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-neutral-600 sm:text-sm sm:leading-6"
                       required
+                      value={searchParams.addy}
+                       
                     />
                   </div>
+                  <div className="h-[800px] w-[800px] bg-red-500">
+
+                  <Map />
+                  </div>
+                  <div>
+                 
+                    <input
+                      type="text"
+                      name="lat"
+                      id="lat"
+                      autoComplete="latitude"
+                      className="block hidden w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm outline-none ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-neutral-600 sm:text-sm sm:leading-6"
+                      required
+                      value={searchParams.lat}/>
+                
+
+                  </div>
+                  <div>
+                 
+                 <input
+                   type="text"
+                   name="lng"
+                   id="lng"
+                   autoComplete="longitude"
+                   className="block hidden w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm outline-none ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-neutral-600 sm:text-sm sm:leading-6"
+                   required
+                   value={searchParams.lng}/>
+             
+
+               </div>
                 </div>
 
                 <div className="sm:col-span-2 sm:col-start-1">

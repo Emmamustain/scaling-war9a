@@ -104,7 +104,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               <TabsList>
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="analytics">Team</TabsTrigger>
-                <TabsTrigger value="reports">Servicess</TabsTrigger>
+               
                 <TabsTrigger value="notifications">
                   Queue management
                 </TabsTrigger>
@@ -244,20 +244,6 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                     <WorkerOutBusiness businessSlug={slug} />
                   </div>
                   <DemoTeamMembers employees={employees} />
-                </div>
-              </TabsContent>
-              <TabsContent value="reports" className="space-y-4">
-                <div>
-                  <CardContent className="flex justify-center gap-4 ">
-                    {businessServices.map((service, index) => (
-                      <div
-                        key={index}
-                        className="m-2 mt-4 rounded border border-gray-200 p-2 text-2xl  "
-                      >
-                        {service.service.name}
-                      </div>
-                    ))}
-                  </CardContent>
                 </div>
               </TabsContent>
               <TabsContent value="notifications" className="space-y-4">

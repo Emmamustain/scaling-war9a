@@ -1,4 +1,5 @@
 "use server";
+import { createClient } from "@/utils/supabase-server";
 import { db } from ".";
 import {
   business_services,
@@ -7,12 +8,14 @@ import {
   guichet_services,
   guichet_workers,
   guichets,
+  notifications,
   queue_entries,
   services,
   user_businesses,
   users,
 } from "./schema";
 import { and, eq, asc, placeholder, sql } from "drizzle-orm";
+import { UserData } from "@/components/Molecules/ActionQueueWorkerSide";
 
 export async function addUser(user_id: string, username: string) {
   const prepared = db
@@ -53,10 +56,14 @@ export async function addBusiness(
   name: string,
   description: string,
   location: string,
+  lat: number,
+  lng: number,
   phone: string,
   city: string,
   zip_code: string,
   slug: string,
+  image: string,
+  cover_image: string,
 ) {
   slug =
     slug.trim() !== ""
@@ -70,10 +77,14 @@ export async function addBusiness(
       name: placeholder("name"),
       description: placeholder("description"),
       location: placeholder("location"),
+      latitude: placeholder("lat"),
+      longitude : placeholder("lng"),
       phone: placeholder("phone"),
       city: placeholder("city"),
       zip_code: placeholder("zip_code"),
       slug: placeholder("slug"),
+      image: placeholder("image"),
+      cover_image: placeholder("cover_image"),
     })
     .prepare("add-business");
 
@@ -83,10 +94,14 @@ export async function addBusiness(
       name: name,
       description: description,
       location: location,
+      lat: lat,
+      lng: lng,
       phone: phone,
       city: city,
       zip_code: zip_code,
       slug: slug,
+      image: image,
+      cover_image: cover_image,
     });
     return { error: null };
   } catch (e) {
@@ -472,7 +487,10 @@ export async function removeServiceFromBusiness(
 }
 
 // // Worker side
-export async function removeUserFromQueue(user_id: string) {
+export async function removeUserFromQueue(
+  user_id: string,
+  next_users: (UserData | null)[],
+) {
   // Delete the worker entry from the business_workers table
   const prepared = await db
     .delete(queue_entries)
@@ -519,9 +537,63 @@ export async function removeUserFromQueue(user_id: string) {
       .prepare("update-average-time");
     await avgTimeFromServices.execute({ service_id: service_id });
 
+    const addNotif = await db
+      .insert(notifications)
+      .values({
+        to_user_id: placeholder("to_user_id"),
+        message: placeholder("message"),
+      })
+      .prepare("add-notification");
+
+    next_users.forEach(async (user, index) => {
+      let message = "";
+      switch (index) {
+        case 0:
+          message =
+            "Your turn has arrived. You have to be present in 5 minutes or else you will forfeit your position.";
+          break;
+        case 1:
+          message = `Average time remaining: ${Math.floor(estimated_waiting_time / 3600)} minutes.`;
+          break;
+        case 2:
+          message = `Average time remaining: ${
+            Math.floor(estimated_waiting_time * 2 /  3600)
+          } minutes.`;
+          break;
+        case 3:
+          message = `Average time remaining:  ${
+            Math.floor(estimated_waiting_time * 3 /  3600)
+          } minutes.`;
+          break;
+        case 4:
+          message = `Average time remaining: ${
+            Math.floor(estimated_waiting_time * 4 /  3600)
+          } minutes.`;
+          break;
+        default:
+          message = "Notification message not specified.";
+      }
+      await addNotif.execute({
+        to_user_id: user?.user_id,
+        message: message,
+      });
+    });
+
     return { error: null };
   } catch (e) {
     const error = (e as unknown as { message: string }).message;
     return { error: error };
   }
+}
+
+export async function markAsRead(user_id: string) {
+  const markAsRead = await db
+    .update(notifications)
+    .set({ consumed: true })
+    .where(eq(notifications.to_user_id, placeholder("to_user_id")))
+    .prepare("mark-as-read");
+
+  const markAsReadQuery = await markAsRead.execute({ to_user_id: user_id }); // Execute the query to mark notifications as read
+
+  return markAsReadQuery;
 }

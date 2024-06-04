@@ -42,7 +42,7 @@ export default function WorkerOutBusiness({
         <div className="mx-auto w-full max-w-sm">
           <DrawerHeader>
             <DrawerTitle>Remove worker </DrawerTitle>
-            <DrawerDescription>bla bla bla</DrawerDescription>
+            <DrawerDescription>Search the worker name</DrawerDescription>
           </DrawerHeader>
           <div className="p-4 pb-0">
             <div className="flex items-center justify-center space-x-2">

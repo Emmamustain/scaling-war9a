@@ -1,0 +1,31 @@
+version: "3.7"
+services:
+  war9a-dock:
+    image: war9a-dock
+    deploy:
+      replicas: 3
+    networks:
+      - web
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.war9a-dock.rule=Host(`localhost`)"
+      - "traefik.http.routers.war9a-dock.entrypoints=web"
+      - "traefik.http.services.war9a-dock.loadbalancer.server.port=3000"
+
+  traefik:
+    image: traefik:v2.9
+    ports:
+      - "80:80"
+      - "8080:8080"
+    networks:
+      - web
+    volumes:
+      - "./traefik.yml:/etc/traefik/traefik.yml"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+
+networks:
+  web: {}
+  internal: {}
+
+volumes:
+  data:
