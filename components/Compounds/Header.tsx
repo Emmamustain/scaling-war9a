@@ -30,7 +30,7 @@ const Header = async () => {
   );
   const userId = session.data.session?.user.id as string; // Assuming session.data.session?.user.id is always a string
   const notifications = await getNotification(userId);
-  console.log("Notifications", notifications);
+  console.log("getRoleAndBusinessId", getRoleAndBusinessId);
 
   return (
     <>
@@ -136,8 +136,6 @@ const Header = async () => {
           </Button>
         </SheetTrigger>
         <SheetContent side="right">
-          
-
           <nav className="grid gap-6 text-lg font-medium">
             <NavigationDropDown />
             {!session.data.session ? (
@@ -156,7 +154,6 @@ const Header = async () => {
               </form>
             )}
           </nav>
-          
         </SheetContent>
       </Sheet>
     </>

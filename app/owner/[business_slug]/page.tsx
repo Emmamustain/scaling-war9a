@@ -104,7 +104,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               <TabsList>
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="analytics">Team</TabsTrigger>
-               
+
                 <TabsTrigger value="notifications">
                   Queue management
                 </TabsTrigger>
@@ -228,7 +228,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                     <CardHeader>
                       <CardTitle>Best Scores</CardTitle>
                       <CardDescription>
-                        Here's the best scores of the month.
+                        Here&apos;s the best scores of the month.
                       </CardDescription>
                     </CardHeader>
                     <CardContent>

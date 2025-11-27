@@ -2,31 +2,36 @@
 
 import { Session } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
-import { createContext, useContext, useEffect } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import useSWR from "swr";
 import { useSupabase } from "./supabase-provider";
-import { getUserData } from "@/database/queries";
 
-type UnwrapPromise<T> = T extends Promise<infer U> ? U : T;
-
-type UserData = UnwrapPromise<ReturnType<typeof getUserData>>;
+type UserData = {
+  user_id: string;
+  username: string;
+  role: string | null;
+  city: string;
+  longitude_user: string | null;
+  latitude_user: string | null;
+  created_at: string;
+  updated_at: string;
+};
 
 interface ContextI {
-  user: UserData | undefined;
+  user: UserData | null | undefined;
   error: any;
   isLoading: boolean;
   mutate: any;
   signOut: () => Promise<void>;
-  //   signInWithGithub: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<string | null>;
 }
+
 const Context = createContext<ContextI>({
   user: null,
   error: null,
   isLoading: true,
   mutate: null,
   signOut: async () => {},
-  //   signInWithGithub: async () => {},
   signInWithEmail: async (email: string, password: string) => null,
 });
 
@@ -39,26 +44,62 @@ export default function SupabaseAuthProvider({
 }) {
   const { supabase } = useSupabase();
   const router = useRouter();
+  const [session, setSession] = useState<Session | null>(serverSession ?? null);
+
+  const fetchUser = async (): Promise<UserData | null> => {
+    if (!session?.user?.id) return null;
+
+    const { data, error } = await supabase
+      .from("users")
+      .select(
+        "user_id, username, role, city, longitude_user, latitude_user, created_at, updated_at",
+      )
+      .eq("user_id", session.user.id)
+      .single<UserData>();
+
+    // console.log("Fetched user data:", data, "Error:", error);
+
+    if (error) throw error;
+    return data;
+  };
 
   const {
     data: user,
     error,
     isLoading,
     mutate,
-  } = useSWR(serverSession ? "profile-context" : null, getUserData);
+  } = useSWR(session ? ["user", session.user.id] : null, fetchUser);
 
-  // Sign Out
+  useEffect(() => {
+    // console.log("Auth state - user:", user, "isLoading:", isLoading);
+  }, [user, isLoading]);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      // console.log("Initial session:", session);
+      setSession(session);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      // console.log("Auth state changed:", event, session);
+      setSession(session);
+      if (session?.access_token !== serverSession?.access_token) {
+        router.refresh();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabase, router, serverSession?.access_token]);
+
   const signOut = async () => {
     await supabase.auth.signOut();
     router.push("/login");
   };
 
-  // Sign-In with Github
-  //   const signInWithGithub = async () => {
-  //     await supabase.auth.signInWithOAuth({ provider: "github" });
-  //   };
-
-  // Sign-In with Email
   const signInWithEmail = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -72,28 +113,12 @@ export default function SupabaseAuthProvider({
     return null;
   };
 
-  // Refresh the Page to Sync Server and Client
-  useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.access_token !== serverSession?.access_token) {
-        router.refresh();
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [router, supabase, serverSession?.access_token]);
-
   const exposed: ContextI = {
     user,
     error,
     isLoading,
     mutate,
     signOut,
-    // signInWithGithub,
     signInWithEmail,
   };
 

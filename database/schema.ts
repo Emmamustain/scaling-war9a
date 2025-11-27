@@ -21,8 +21,8 @@ export const userRole = pgEnum("user_role", [
   "founder",
 ]); // Enum for user roles
 
-const guichetStatus = pgEnum("guichet_status", ["open", "closed", "paused"]); // Enum for Guichet Status
-const queuedStatus = pgEnum("queued_status", ["waiting", "passed", "left"]); // Enum for Queue Entry Status
+export const guichetStatus = pgEnum("guichet_status", ["open", "closed", "paused"]); // Enum for Guichet Status
+export const queuedStatus = pgEnum("queued_status", ["waiting", "passed", "left"]); // Enum for Queue Entry Status
 
 export const users = pgTable("users", {
   user_id: uuid("user_id").defaultRandom().primaryKey(),

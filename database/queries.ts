@@ -270,6 +270,8 @@ export async function getBusinessEmployees(bizid: string, limit?: number) {
 
   const businessData = await preparedBusinessData.execute({ slug: bizid });
 
+  console.log("businessData", { bizid });
+
   const prepared = db
     .select()
     .from(business_workers)
@@ -421,16 +423,26 @@ export async function getUserRoleAndBusinessSlug(user_id: string | null) {
 
     const userRole = userData[0].role;
 
-    const businessData = await db
-      .select({ business_slug: businesses.slug })
-      .from(business_workers)
-      .leftJoin(
-        businesses,
-        eq(business_workers.business_id, businesses.business_id),
-      )
-      .where(eq(business_workers.user_id, placeholder("user_id")))
-      .limit(1)
-      .execute({ user_id: user_id });
+    let businessData;
+    if (userRole === "owner") {
+      businessData = await db
+        .select({ business_slug: businesses.slug })
+        .from(businesses)
+        .where(eq(businesses.owner_id, placeholder("user_id")))
+        .limit(1)
+        .execute({ user_id: user_id });
+    } else {
+      businessData = await db
+        .select({ business_slug: businesses.slug })
+        .from(business_workers)
+        .leftJoin(
+          businesses,
+          eq(business_workers.business_id, businesses.business_id),
+        )
+        .where(eq(business_workers.user_id, placeholder("user_id")))
+        .limit(1)
+        .execute({ user_id: user_id });
+    }
 
     if (!businessData || businessData.length === 0) {
       // throw new Error("Business not found for the worker.");

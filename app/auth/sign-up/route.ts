@@ -1,7 +1,6 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-
 import type { Database } from "@/lib/database.types";
 import { addUser } from "@/database/mutations";
 
@@ -13,17 +12,41 @@ export async function POST(request: Request) {
   const email = String(formData.get("email"));
   const password = String(formData.get("password"));
   const passwordAgain = String(formData.get("password-again"));
-  const supabase = createRouteHandlerClient<Database>({ cookies });
 
   if (password !== passwordAgain) {
     return NextResponse.redirect(
       `${requestUrl.origin}/sign-up?error=Passwords Did Not Match`,
       {
-        // a 301 status is required to redirect from a POST to a GET route
         status: 301,
       },
     );
   }
+
+  const cookieStore = await cookies();
+
+  const cookiesToSet: Array<{
+    name: string;
+    value: string;
+    options?: any;
+  }> = [];
+
+  const supabase = createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+        set(name: string, value: string, options: any) {
+          cookiesToSet.push({ name, value, options });
+        },
+        remove(name: string, options: any) {
+          cookiesToSet.push({ name, value: "", options });
+        },
+      },
+    },
+  );
 
   const { error, data } = await supabase.auth.signUp({
     email,
@@ -35,25 +58,28 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.redirect(
-      `${requestUrl.origin}/sign-up?error=Could not authenticate user?detailed=${error}`,
+      `${requestUrl.origin}/sign-up?error=Could not authenticate user&detailed=${error.message}`,
       {
-        // a 301 status is required to redirect from a POST to a GET route
         status: 301,
       },
     );
   }
 
-  // console.log(data.user?.id);
-
-  if (data.user?.id !== null && data.user?.id !== undefined) {
-    const result = addUser(data.user?.id, email.split("@")[0]);
+  if (data.user?.id) {
+    await addUser(data.user.id, email.split("@")[0]);
   }
 
-  return NextResponse.redirect(
+  const response = NextResponse.redirect(
     `${requestUrl.origin}/sign-in?message=Check email to continue sign in process`,
     {
-      // a 301 status is required to redirect from a POST to a GET route
       status: 301,
     },
   );
+
+  // Apply all cookies
+  cookiesToSet.forEach(({ name, value, options }) => {
+    response.cookies.set(name, value, options || {});
+  });
+
+  return response;
 }
