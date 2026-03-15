@@ -70,7 +70,7 @@ export default function SignUpPage() {
               type="text"
               placeholder="Ahmed Benali"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
               required
               autoComplete="name"
             />
@@ -85,7 +85,7 @@ export default function SignUpPage() {
               type="email"
               placeholder="ahmed@example.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
               required
               autoComplete="email"
             />
@@ -100,7 +100,7 @@ export default function SignUpPage() {
               type="password"
               placeholder="Min. 8 characters"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
               required
               minLength={8}
               autoComplete="new-password"

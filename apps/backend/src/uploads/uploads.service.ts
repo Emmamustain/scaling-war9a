@@ -67,7 +67,7 @@ export class UploadsService {
       'Content-Type': 'image/jpeg',
     });
 
-    const protocol = this.useSSL ? 'https' : 'https';
+    const protocol = this.useSSL ? 'https' : 'http';
     return `${protocol}://${this.publicEndpoint}/${bucket}/${filename}`;
   }
 

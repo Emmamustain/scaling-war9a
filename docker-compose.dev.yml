@@ -98,6 +98,7 @@ services:
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=minioadmin
       - MINIO_PUBLIC_ENDPOINT=cdn.war9a.localhost
+      - MINIO_PUBLIC_SSL=true
     env_file:
       - path: apps/backend/.env
         required: false

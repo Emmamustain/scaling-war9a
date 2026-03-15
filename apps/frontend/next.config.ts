@@ -15,17 +15,7 @@ const nextConfig: NextConfig = {
         output: "standalone",
       }),
   images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "**",
-      },
-      {
-        protocol: "http",
-        hostname: "localhost",
-      },
-    ],
-    ...(isCapacitorBuild ? { unoptimized: true } : {}),
+    unoptimized: true,
   },
   experimental: {
     optimizePackageImports: ["lucide-react", "recharts"],

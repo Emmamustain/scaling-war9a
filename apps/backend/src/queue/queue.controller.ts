@@ -33,6 +33,14 @@ class CallNextDto {
   @IsUUID() guichetId!: string;
 }
 
+class WalkInDto {
+  @IsOptional() @IsString() name?: string;
+  @IsOptional() @IsString() phone?: string;
+  @IsOptional() @IsNumber() @Min(1) @Max(20) groupSize?: number;
+  @IsOptional() @IsString() notes?: string;
+  @IsOptional() @IsIn(['normal', 'priority', 'urgent']) priority?: 'normal' | 'priority' | 'urgent';
+}
+
 @Controller('queue')
 export class QueueController {
   constructor(private readonly queueService: QueueService) {}
@@ -52,6 +60,24 @@ export class QueueController {
   @UseGuards(OptionalJwtAuthGuard)
   getEntry(@Param('entryId') entryId: string) {
     return this.queueService.getQueueByEntry(entryId);
+  }
+
+  @Get('entry/:entryId/neighborhood')
+  @UseGuards(OptionalJwtAuthGuard)
+  getEntryNeighborhood(@Param('entryId') entryId: string) {
+    return this.queueService.getEntryNeighborhood(entryId);
+  }
+
+  @Get('my-entries')
+  @UseGuards(JwtAuthGuard)
+  getMyEntries(@AuthUser() user: TReqUser) {
+    return this.queueService.getMyActiveEntries(user.userId);
+  }
+
+  @Get('history')
+  @UseGuards(JwtAuthGuard)
+  getHistory(@AuthUser() user: TReqUser) {
+    return this.queueService.getMyHistory(user.userId);
   }
 
   @Get('my/:serviceId')
@@ -74,6 +100,17 @@ export class QueueController {
       userId: user?.userId,
       ...body,
     });
+  }
+
+  /** Worker adds a walk-in customer manually — always creates anonymous entry */
+  @Post('service/:serviceId/walk-in')
+  @UseGuards(JwtAuthGuard)
+  addWalkIn(
+    @Param('serviceId') serviceId: string,
+    @Body() body: WalkInDto,
+    @AuthUser() user: TReqUser,
+  ) {
+    return this.queueService.addWalkIn(serviceId, body, user.userId);
   }
 
   @Delete('entry/:entryId/leave')
@@ -102,5 +139,14 @@ export class QueueController {
     @AuthUser() user: TReqUser,
   ) {
     return this.queueService.markServed(entryId, user.userId);
+  }
+
+  @Put('entry/:entryId/no-show')
+  @UseGuards(JwtAuthGuard)
+  markNoShow(
+    @Param('entryId') entryId: string,
+    @AuthUser() user: TReqUser,
+  ) {
+    return this.queueService.markNoShow(entryId, user.userId);
   }
 }

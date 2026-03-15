@@ -17,13 +17,15 @@
     "drizzle:generate": "drizzle-kit generate",
     "drizzle:migrate": "drizzle-kit migrate",
     "drizzle:studio": "drizzle-kit studio",
-    "drizzle:seed": "ts-node seed.ts"
+    "drizzle:seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' seed.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "packageManager": "npm@10.9.2",
   "dependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "bcrypt": "^6.0.0",
     "dotenv": "^16.5.0",
     "drizzle-kit": "^0.31.8",
     "drizzle-orm": "^0.43.1",

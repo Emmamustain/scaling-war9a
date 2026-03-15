@@ -195,6 +195,40 @@ export const businessWorkersRelations = relations(
   }),
 );
 
+export const businessHoursRelations = relations(businessHours, ({ one }) => ({
+  business: one(businesses, {
+    fields: [businessHours.businessId],
+    references: [businesses.id],
+  }),
+}));
+
+export const businessLogsRelations = relations(businessLogs, ({ one }) => ({
+  business: one(businesses, {
+    fields: [businessLogs.businessId],
+    references: [businesses.id],
+  }),
+  actor: one(users, {
+    fields: [businessLogs.actorId],
+    references: [users.id],
+  }),
+}));
+
+export const businessBranchesRelations = relations(
+  businessBranches,
+  ({ one }) => ({
+    parent: one(businesses, {
+      fields: [businessBranches.parentId],
+      references: [businesses.id],
+      relationName: "parentBusiness",
+    }),
+    branch: one(businesses, {
+      fields: [businessBranches.branchId],
+      references: [businesses.id],
+      relationName: "branchBusiness",
+    }),
+  }),
+);
+
 export const notificationsRelations = relations(notifications, ({ one }) => ({
   toUser: one(users, {
     fields: [notifications.toUserId],

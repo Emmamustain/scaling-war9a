@@ -60,11 +60,21 @@ endif
 up: generate-certs
 	@echo $(HR)
 	@echo Starting development Docker containers...
-	docker-compose -f docker-compose.dev.yml up --build
+	docker-compose -f docker-compose.dev.yml up
 
 upd: generate-certs
 	@echo $(HR)
 	@echo Starting development Docker containers in background...
+	docker-compose -f docker-compose.dev.yml up -d
+
+build: generate-certs
+	@echo $(HR)
+	@echo Building and starting development Docker containers...
+	docker-compose -f docker-compose.dev.yml up --build
+
+buildd: generate-certs
+	@echo $(HR)
+	@echo Building and starting development Docker containers in background...
 	docker-compose -f docker-compose.dev.yml up -d --build
 
 down:
@@ -75,8 +85,7 @@ down:
 restart:
 	@echo $(HR)
 	@echo Restarting development Docker containers...
-	docker-compose -f docker-compose.dev.yml down
-	docker-compose -f docker-compose.dev.yml up --build
+	docker-compose -f docker-compose.dev.yml restart
 
 # Production commands
 prod:

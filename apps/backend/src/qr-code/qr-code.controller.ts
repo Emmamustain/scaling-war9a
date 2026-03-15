@@ -12,6 +12,7 @@ export class QrCodeController {
     res.setHeader('Content-Type', 'image/png');
     res.setHeader('Content-Disposition', `inline; filename="queue-${serviceId}.png"`);
     res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     res.send(buffer);
   }
 
@@ -21,6 +22,7 @@ export class QrCodeController {
     res.setHeader('Content-Type', 'image/png');
     res.setHeader('Content-Disposition', `inline; filename="business-${slug}.png"`);
     res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     res.send(buffer);
   }
 }

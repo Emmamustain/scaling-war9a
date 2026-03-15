@@ -4,9 +4,10 @@ import { QueueController } from './queue.controller';
 import { QueueGateway } from './queue.gateway';
 import { DrizzleModule } from '../drizzle/drizzle.module';
 import { AuthModule } from '../auth/auth.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [DrizzleModule, AuthModule],
+  imports: [DrizzleModule, AuthModule, NotificationsModule],
   controllers: [QueueController],
   providers: [QueueService, QueueGateway],
   exports: [QueueService, QueueGateway],

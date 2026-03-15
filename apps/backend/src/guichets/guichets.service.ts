@@ -45,12 +45,32 @@ export class GuichetsService {
     return updated;
   }
 
-  async assignWorker(guichetId: string, workerId: string) {
+  async assignWorker(guichetId: string, workerId: string | null) {
     const [updated] = await this.db
       .update(schema.guichets)
       .set({ currentWorkerId: workerId, updatedAt: new Date() })
       .where(eq(schema.guichets.id, guichetId))
       .returning();
+    if (!updated) throw new NotFoundException('Guichet not found');
     return updated;
+  }
+
+  async assignService(guichetId: string, serviceId: string | null) {
+    const [updated] = await this.db
+      .update(schema.guichets)
+      .set({ serviceId: serviceId ?? undefined, updatedAt: new Date() })
+      .where(eq(schema.guichets.id, guichetId))
+      .returning();
+    if (!updated) throw new NotFoundException('Guichet not found');
+    return updated;
+  }
+
+  async remove(guichetId: string) {
+    const [removed] = await this.db
+      .delete(schema.guichets)
+      .where(eq(schema.guichets.id, guichetId))
+      .returning();
+    if (!removed) throw new NotFoundException('Guichet not found');
+    return { success: true };
   }
 }

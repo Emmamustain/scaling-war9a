@@ -1,0 +1,30 @@
+# Dependencies - never needed in build context, Docker installs its own
+node_modules
+**/node_modules
+
+# Build outputs - Docker builds these fresh
+**/dist
+**/.next
+**/build
+**/.turbo
+**/tsconfig.tsbuildinfo
+**/*.tsbuildinfo
+
+# Dev/tooling
+.git
+.gitignore
+**/.env*.local
+*.log
+**/.DS_Store
+
+# Nx cache
+.nx/cache
+.nx/workspace-data
+
+# Mobile
+**/android
+**/ios
+**/.capacitor
+
+# Old/example dirs
+.old-project

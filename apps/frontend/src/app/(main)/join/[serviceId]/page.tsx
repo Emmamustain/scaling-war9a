@@ -1,9 +1,10 @@
 "use client";
 
 import { use, useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { fetchApi } from "@/lib/fetch";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { fetchApi, ApiError } from "@/lib/fetch";
 import { useAuthStore } from "@/stores/auth.store";
+import ForfeitQueueDialog from "@/components/queue/forfeit-queue-dialog";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,7 +47,15 @@ export default function JoinQueuePage({
   const { serviceId } = use(params);
   const { isAuthenticated } = useAuthStore();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [groupSize, setGroupSize] = useState(1);
+  const [forfeitEntry, setForfeitEntry] = useState<{
+    id: string;
+    serviceName: string;
+    businessName: string;
+    businessSlug: string;
+    position: number;
+  } | null>(null);
   const [priority, setPriority] = useState<"normal" | "priority" | "urgent">("normal");
   const [anonymousName, setAnonymousName] = useState("");
   const [anonymousPhone, setAnonymousPhone] = useState("");
@@ -73,10 +82,40 @@ export default function JoinQueuePage({
       }),
     onSuccess: (entry: { id: string }) => {
       toast.success("Joined queue!");
+      void queryClient.invalidateQueries({ queryKey: ["queue", "my-entries"] });
       router.push(`/queue/${entry.id}`);
     },
+    onError: (err) => {
+      if (err instanceof ApiError && err.status === 409) {
+        const d = err.data as { code?: string; currentEntry?: typeof forfeitEntry } | undefined;
+        if (d?.code === "ALREADY_IN_OTHER_QUEUE" && d?.currentEntry) {
+          setForfeitEntry(d.currentEntry);
+          return;
+        }
+      }
+      toast.error(err instanceof Error ? err.message : "Failed to join queue");
+    },
+  });
+
+  const leaveMutation = useMutation({
+    mutationFn: ({
+      entryId,
+      forForfeit,
+    }: {
+      entryId: string;
+      forForfeit?: boolean;
+    }) => fetchApi(`/queue/entry/${entryId}/leave`, { method: "DELETE" }),
+    onSuccess: (_, vars) => {
+      if (vars?.forForfeit) {
+        setForfeitEntry(null);
+        joinMutation.mutate();
+      } else {
+        toast.success("Left the queue");
+      }
+      void queryClient.invalidateQueries({ queryKey: ["queue", "my-entries"] });
+    },
     onError: (err) =>
-      toast.error(err instanceof Error ? err.message : "Failed to join queue"),
+      toast.error(err instanceof Error ? err.message : "Failed to leave queue"),
   });
 
   if (isLoading) {
@@ -225,6 +264,20 @@ export default function JoinQueuePage({
           )}
         </Button>
       </div>
+
+      <ForfeitQueueDialog
+        open={!!forfeitEntry}
+        onOpenChange={(open) => !open && setForfeitEntry(null)}
+        currentEntry={forfeitEntry}
+        onConfirm={() =>
+          forfeitEntry &&
+          leaveMutation.mutate({
+            entryId: forfeitEntry.id,
+            forForfeit: true,
+          })
+        }
+        isPending={leaveMutation.isPending || joinMutation.isPending}
+      />
     </div>
   );
 }

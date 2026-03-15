@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Patch,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
@@ -34,6 +35,12 @@ class UpdateUsernameDto {
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  @Get('search')
+  @UseGuards(JwtAuthGuard)
+  search(@Query('q') q: string) {
+    return this.usersService.search(q);
+  }
 
   @Get('me')
   @UseGuards(JwtAuthGuard)

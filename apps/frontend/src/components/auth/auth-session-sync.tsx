@@ -11,28 +11,17 @@ export function AuthSessionSync() {
   useEffect(() => {
     void checkAuth();
 
-    const handleFocus = () => void checkAuth();
-    const handleVisibility = () => {
-      if (!document.hidden) void checkAuth();
-    };
-
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleVisibility);
-
+    // Re-validate session every 5 minutes in the background (no focus/visibility triggers)
     const interval = setInterval(
       () => {
         if (useAuthStore.getState().isAuthenticated) {
           void checkAuth();
         }
       },
-      60 * 1000,
+      5 * 60 * 1000,
     );
 
-    return () => {
-      window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleVisibility);
-      clearInterval(interval);
-    };
+    return () => clearInterval(interval);
   }, [checkAuth]);
 
   useEffect(() => {

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchApi } from "@/lib/fetch";
 import { getCurrentPosition } from "@shared/mobile";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Loader2, X, Clock, Users } from "lucide-react";
+import { MapPin, Loader2, X, Clock } from "lucide-react";
+import { toast } from "sonner";
 import Link from "next/link";
 import { formatWaitTime } from "@/lib/utils";
 import dynamic from "next/dynamic";
@@ -21,7 +22,7 @@ export default function MapPage() {
 
   const { data: businesses, isLoading } = useQuery({
     queryKey: ["map-businesses"],
-    queryFn: () => fetchApi<MapBusiness[]>("/businesses?limit=100&withLocation=true"),
+    queryFn: () => fetchApi<{ data: Array<{ id: string; name: string; slug: string; city: string; latitude: string | null; longitude: string | null; isOpen: boolean; logoUrl: string | null; avgWaitTime: number | null; status: string; categories: Array<{ category: { id: string; name: string } }> }> }>("/businesses?limit=50"),
     staleTime: 60000,
   });
 
@@ -30,18 +31,35 @@ export default function MapPage() {
     try {
       const pos = await getCurrentPosition();
       setUserPosition([pos.latitude, pos.longitude]);
-    } catch {
-      // ignore permission denial
+    } catch (err) {
+      const code = (err as GeolocationPositionError)?.code;
+      if (code === 1) {
+        toast.error("Location access denied — please allow it in your browser settings");
+      } else if (code === 3) {
+        toast.error("Location request timed out — try again");
+      } else {
+        toast.error("Could not get your location");
+      }
     } finally {
       setLocationLoading(false);
     }
   };
 
-  const mapBusinesses = businesses
-    ? (Array.isArray(businesses) ? businesses : (businesses as { data: MapBusiness[] }).data ?? []).filter(
-        (b) => b.lat && b.lng,
-      )
-    : [];
+  const mapBusinesses: MapBusiness[] = (businesses?.data ?? [])
+    .filter((b) => b.latitude && b.longitude)
+    .map((b) => ({
+      id: b.id,
+      name: b.name,
+      slug: b.slug,
+      city: b.city,
+      lat: parseFloat(b.latitude!),
+      lng: parseFloat(b.longitude!),
+      isOpen: b.isOpen,
+      logoUrl: b.logoUrl,
+      avgWaitTime: b.avgWaitTime,
+      status: b.status,
+      categories: b.categories,
+    }));
 
   return (
     <div className="relative h-[calc(100vh-4rem)] md:h-[calc(100vh-4rem)]">

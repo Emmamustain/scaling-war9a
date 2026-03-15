@@ -15,6 +15,8 @@ export type QueuePositionUpdate = {
   serviceId: string;
   position: number;
   estimatedWaitMinutes: number;
+  /** Unix ms — client counts down to this timestamp */
+  deadlineAt: number;
   status: string;
 };
 
@@ -108,6 +110,11 @@ export class QueueGateway
     this.server
       .to(`entry:${event.entryId}`)
       .emit('queue:called', event);
+  }
+
+  broadcastEntryServed(event: { entryId: string; serviceId: string }) {
+    this.server.to(`entry:${event.entryId}`).emit('queue:served', event);
+    this.server.to(`service:${event.serviceId}`).emit('queue:served', event);
   }
 
   broadcastServiceStatusChange(event: QueueStatusChange) {

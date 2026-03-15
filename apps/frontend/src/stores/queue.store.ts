@@ -6,6 +6,8 @@ type QueueEntry = {
   serviceId: string;
   position: number;
   estimatedWaitMinutes: number;
+  /** Unix ms timestamp — count down to this */
+  deadlineAt: number;
   status: string;
 };
 
@@ -58,12 +60,21 @@ export const useQueueStore = create<QueueState>((set, get) => ({
         return { entries };
       });
     });
+
+    socket.on("queue:served", (data: { entryId: string }) => {
+      set((state) => {
+        const entries = new Map(state.entries);
+        entries.delete(data.entryId);
+        return { entries };
+      });
+    });
   },
 
   disconnect: () => {
     const socket = getSocket();
     socket.off("queue:position-update");
     socket.off("queue:called");
+    socket.off("queue:served");
     disconnectSocket();
     set({ isConnected: false });
   },

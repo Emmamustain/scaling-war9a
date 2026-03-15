@@ -29,7 +29,7 @@ export class BusinessesService {
     limit?: number;
   }) {
     const page = query?.page ?? 1;
-    const limit = Math.min(query?.limit ?? 20, 50);
+    const limit = Math.min(query?.limit ?? 20, 200);
     const offset = (page - 1) * limit;
 
     const conditions = [eq(schema.businesses.status, 'active')];
@@ -152,6 +152,27 @@ export class BusinessesService {
     return business;
   }
 
+  async findBySlugForOwner(slug: string, ownerId: string) {
+    const business = await this.db.query.businesses.findFirst({
+      where: eq(schema.businesses.slug, slug),
+      with: {
+        categories: { with: { category: true } },
+        services: true,
+        hours: { orderBy: (h, { asc }) => [asc(h.dayOfWeek)] },
+        workers: {
+          with: {
+            user: {
+              columns: { id: true, displayName: true, email: true, avatarUrl: true },
+            },
+          },
+        },
+      },
+    });
+    if (!business) throw new NotFoundException('Business not found');
+    if (business.ownerId !== ownerId) throw new ForbiddenException('Not authorized');
+    return business;
+  }
+
   async update(
     businessId: string,
     userId: string,
@@ -163,6 +184,9 @@ export class BusinessesService {
       phone: string;
       latitude: string;
       longitude: string;
+      logoUrl: string;
+      coverUrl: string;
+      isOpen: boolean;
     }>,
   ) {
     const business = await this.db.query.businesses.findFirst({
@@ -178,6 +202,34 @@ export class BusinessesService {
       .where(eq(schema.businesses.id, businessId))
       .returning();
     return updated;
+  }
+
+  async upsertHours(
+    businessId: string,
+    ownerId: string,
+    hours: Array<{ dayOfWeek: number; openTime: string; closeTime: string; isClosed: boolean }>,
+  ) {
+    const business = await this.db.query.businesses.findFirst({
+      where: eq(schema.businesses.id, businessId),
+      columns: { id: true, ownerId: true },
+    });
+    if (!business) throw new NotFoundException('Business not found');
+    if (business.ownerId !== ownerId) throw new ForbiddenException('Not authorized');
+
+    await this.db
+      .delete(schema.businessHours)
+      .where(eq(schema.businessHours.businessId, businessId));
+
+    if (hours.length > 0) {
+      await this.db.insert(schema.businessHours).values(
+        hours.map((h) => ({ ...h, businessId })),
+      );
+    }
+
+    return this.db.query.businessHours.findMany({
+      where: eq(schema.businessHours.businessId, businessId),
+      orderBy: (h, { asc }) => [asc(h.dayOfWeek)],
+    });
   }
 
   async findWorkerBusinesses(userId: string) {

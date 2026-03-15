@@ -70,7 +70,7 @@ export default async function RootLayout({
               <AuthSessionSync />
               <PwaInit />
               {children}
-              <Toaster position="top-center" richColors closeButton />
+              <Toaster position="bottom-right" theme="system" richColors closeButton />
             </QueryProvider>
           </ThemeProvider>
         </NextIntlClientProvider>

@@ -42,7 +42,8 @@ export default function NotificationsPage() {
     },
   });
 
-  const unread = data?.data.filter((n) => !n.consumed) ?? [];
+  const notifications = data?.data ?? [];
+  const unread = notifications.filter((n) => !n.consumed);
 
   return (
     <div className="mx-auto max-w-lg px-4 py-8">
@@ -70,14 +71,14 @@ export default function NotificationsPage() {
         <div className="flex items-center justify-center py-10">
           <Loader2 className="size-6 animate-spin" />
         </div>
-      ) : data?.data.length === 0 ? (
+      ) : notifications.length === 0 ? (
         <div className="py-20 text-center">
           <Bell className="mx-auto mb-3 size-10 text-muted-foreground/30" />
           <p className="text-muted-foreground">No notifications yet</p>
         </div>
       ) : (
         <div className="space-y-2">
-          {data?.data.map((notif) => (
+          {notifications.map((notif) => (
             <button
               key={notif.id}
               className="w-full rounded-xl border border-border bg-card p-4 text-left transition-colors hover:bg-secondary/50"

@@ -18,7 +18,13 @@ import {
   MaxLength,
   IsArray,
   IsUUID,
+  IsBoolean,
+  ValidateNested,
+  IsInt,
+  Min,
+  Max,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 class CreateBusinessDto {
   @IsString() @MaxLength(200) name!: string;
@@ -38,6 +44,25 @@ class UpdateBusinessDto {
   @IsOptional() @IsString() location?: string;
   @IsOptional() @IsString() city?: string;
   @IsOptional() @IsString() phone?: string;
+  @IsOptional() @IsString() latitude?: string;
+  @IsOptional() @IsString() longitude?: string;
+  @IsOptional() @IsString() logoUrl?: string;
+  @IsOptional() @IsString() coverUrl?: string;
+  @IsOptional() @IsBoolean() isOpen?: boolean;
+}
+
+class BusinessHourDto {
+  @IsInt() @Min(0) @Max(6) dayOfWeek!: number;
+  @IsString() openTime!: string;
+  @IsString() closeTime!: string;
+  @IsBoolean() isClosed!: boolean;
+}
+
+class UpsertHoursDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => BusinessHourDto)
+  hours!: BusinessHourDto[];
 }
 
 @Controller('businesses')
@@ -73,6 +98,12 @@ export class BusinessesController {
     return this.businessesService.findWorkerBusinesses(user.userId);
   }
 
+  @Get(':slug/manage')
+  @UseGuards(JwtAuthGuard)
+  findForOwner(@Param('slug') slug: string, @AuthUser() user: TReqUser) {
+    return this.businessesService.findBySlugForOwner(slug, user.userId);
+  }
+
   @Get(':slug')
   findOne(@Param('slug') slug: string) {
     return this.businessesService.findBySlug(slug);
@@ -92,5 +123,15 @@ export class BusinessesController {
     @Body() body: UpdateBusinessDto,
   ) {
     return this.businessesService.update(id, user.userId, body);
+  }
+
+  @Put(':id/hours')
+  @UseGuards(JwtAuthGuard)
+  upsertHours(
+    @AuthUser() user: TReqUser,
+    @Param('id') id: string,
+    @Body() body: UpsertHoursDto,
+  ) {
+    return this.businessesService.upsertHours(id, user.userId, body.hours);
   }
 }

@@ -1,11 +1,25 @@
 import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { DrizzleDB, schema } from '@shared/drizzle';
-import { eq } from '@shared/drizzle/operators';
+import { eq, or, ilike } from '@shared/drizzle/operators';
 import { DRIZZLE } from '../drizzle/drizzle.module';
 
 @Injectable()
 export class UsersService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+
+  async search(q: string, limit = 10) {
+    if (!q || q.trim().length < 2) return [];
+    const term = `%${q.trim()}%`;
+    return this.db.query.users.findMany({
+      where: or(
+        ilike(schema.users.displayName, term),
+        ilike(schema.users.email, term),
+        ilike(schema.users.username, term),
+      ),
+      columns: { id: true, displayName: true, email: true, avatarUrl: true, username: true },
+      limit,
+    });
+  }
 
   async findById(id: string) {
     const user = await this.db.query.users.findFirst({
