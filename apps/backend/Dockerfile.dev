@@ -1,0 +1,16 @@
+FROM node:20-slim
+WORKDIR /app
+
+# Copy only workspace configs first to leverage cache
+COPY package.json package-lock.json* ./
+COPY apps/backend/package.json ./apps/backend/
+COPY packages/shared/drizzle/package.json ./packages/shared/drizzle/
+COPY packages/shared/types/package.json ./packages/shared/types/
+
+RUN npm install
+
+# Copy the rest of the code
+COPY . .
+
+EXPOSE 4000
+CMD ["npm", "run", "start:dev", "--prefix", "apps/backend"]

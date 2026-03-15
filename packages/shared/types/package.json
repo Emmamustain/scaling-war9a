@@ -1,0 +1,21 @@
+{
+  "name": "@shared/types",
+  "version": "1.0.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./*": "./dist/*.js"
+  },
+  "scripts": {
+    "build": "tsc --build tsconfig.json",
+    "dev": "tsc --build --watch tsconfig.json"
+  },
+  "dependencies": {
+    "@shared/drizzle": "*"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "npm@10.9.2"
+}

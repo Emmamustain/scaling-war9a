@@ -1,0 +1,37 @@
+{
+  "name": "@shared/mobile",
+  "version": "1.0.0",
+  "description": "Shared Capacitor plugin wrappers and mobile bridge utilities for War9a",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./*": "./dist/*.js"
+  },
+  "scripts": {
+    "build": "tsc --build tsconfig.json",
+    "dev": "tsc --build --watch tsconfig.json"
+  },
+  "peerDependencies": {
+    "@capacitor/core": ">=6.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@capacitor/core": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/push-notifications": "^7.0.0",
+    "@capacitor/geolocation": "^7.0.0",
+    "@capacitor/camera": "^7.0.0",
+    "@capacitor/haptics": "^7.0.0",
+    "@capacitor/share": "^7.0.0",
+    "@capacitor/local-notifications": "^7.0.0",
+    "typescript": "^5.8.3"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "npm@10.9.2"
+}

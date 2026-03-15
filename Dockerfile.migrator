@@ -1,0 +1,25 @@
+FROM node:20-alpine
+ENV NODE_ENV=production
+WORKDIR /app
+
+# Tools for native module builds
+RUN apk add --no-cache python3 make g++
+
+# Copy configs first for caching
+COPY package.json package-lock.json* tsconfig*.json nx.json ./
+COPY apps/backend/package.json ./apps/backend/
+COPY apps/frontend/package.json ./apps/frontend/
+COPY packages/shared/drizzle/package.json ./packages/shared/drizzle/
+COPY packages/shared/types/package.json ./packages/shared/types/
+
+# We need ALL dependencies for the migrator because it compiles TS on the fly
+RUN npm install
+
+# Copy source
+COPY . .
+
+# Build shared packages
+RUN npx nx run-many -t build --projects=@shared/drizzle,@shared/types --parallel=false --skip-nx-cache
+
+WORKDIR /app/packages/shared/drizzle
+CMD ["npm", "run", "drizzle:migrate"]

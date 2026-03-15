@@ -1,0 +1,237 @@
+services:
+  traefik:
+    image: traefik:v3.6
+    user: root
+    privileged: true
+    command:
+      - "--configFile=/etc/traefik/traefik.yml"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.war9a.localhost`)"
+      - "traefik.http.routers.dashboard.entrypoints=web-secured"
+      - "traefik.http.routers.dashboard.tls=true"
+      - "traefik.http.routers.dashboard.service=api@internal"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./certs:/certs:ro
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./dynamic:/etc/traefik/dynamic:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile.dev
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=app-network"
+      - "traefik.http.routers.frontend.rule=Host(`war9a.localhost`)"
+      - "traefik.http.routers.frontend.entrypoints=web-secured"
+      - "traefik.http.routers.frontend.tls=true"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL:-https://api.war9a.localhost}
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
+    ports:
+      - "3000:3000"
+    networks:
+      - app-network
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/apps/frontend/node_modules
+      - /app/apps/backend/node_modules
+      - /app/packages/shared/drizzle/node_modules
+      - /app/packages/shared/types/node_modules
+      - /app/packages/shared/mobile/node_modules
+      - frontend-next-cache:/app/apps/frontend/.next
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile.dev
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=app-network"
+      - "traefik.http.routers.backend.rule=Host(`api.war9a.localhost`)"
+      - "traefik.http.routers.backend.entrypoints=web-secured"
+      - "traefik.http.routers.backend.tls=true"
+      - "traefik.http.routers.backend.priority=100"
+      - "traefik.http.services.backend.loadbalancer.server.port=4000"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/war9a
+      - REDIS_URL=redis://redis:6379
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-dev_secret_change_me_in_production_min_32_chars}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-https://api.war9a.localhost/auth}
+      - SESSION_COOKIE_SECURE=false
+      - COOKIE_SAME_SITE=lax
+      - COOKIE_DOMAIN=
+      - FRONTEND_URL=${FRONTEND_URL:-https://war9a.localhost}
+      - TRUSTED_ORIGINS=${TRUSTED_ORIGINS:-https://war9a.localhost}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-https://war9a.localhost}
+      - TRUST_PROXY=true
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+      - MINIO_ENDPOINT=minio
+      - MINIO_PORT=9000
+      - MINIO_USE_SSL=false
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_PUBLIC_ENDPOINT=cdn.war9a.localhost
+    env_file:
+      - path: apps/backend/.env
+        required: false
+    ports:
+      - "4000:4000"
+    networks:
+      - app-network
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/apps/frontend/node_modules
+      - /app/apps/backend/node_modules
+      - /app/packages/shared/drizzle/node_modules
+      - /app/packages/shared/types/node_modules
+      - /app/packages/shared/mobile/node_modules
+
+  migrator:
+    build:
+      context: .
+      dockerfile: Dockerfile.migrator
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/war9a
+    networks:
+      - app-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  shared-watcher:
+    build:
+      context: .
+      dockerfile: Dockerfile.watcher
+    networks:
+      - app-network
+    volumes:
+      - ./packages/shared:/app/packages/shared
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=war9a
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d war9a"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=app-network"
+      - "traefik.http.routers.minio-console.rule=Host(`storage.war9a.localhost`)"
+      - "traefik.http.routers.minio-console.entrypoints=web-secured"
+      - "traefik.http.routers.minio-console.tls=true"
+      - "traefik.http.routers.minio-console.service=minio-console-svc"
+      - "traefik.http.services.minio-console-svc.loadbalancer.server.port=9001"
+      - "traefik.http.routers.minio-public.rule=Host(`cdn.war9a.localhost`)"
+      - "traefik.http.routers.minio-public.entrypoints=web-secured"
+      - "traefik.http.routers.minio-public.tls=true"
+      - "traefik.http.routers.minio-public.service=minio-public-svc"
+      - "traefik.http.services.minio-public-svc.loadbalancer.server.port=9000"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - app-network
+
+  createbuckets:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin; do
+        echo 'Waiting for MinIO to be ready...'
+        sleep 1
+      done;
+      /usr/bin/mc mb myminio/avatars || true;
+      /usr/bin/mc mb myminio/logos || true;
+      /usr/bin/mc mb myminio/covers || true;
+      /usr/bin/mc mb myminio/qrcodes || true;
+      /usr/bin/mc anonymous set public myminio/avatars;
+      /usr/bin/mc anonymous set public myminio/logos;
+      /usr/bin/mc anonymous set public myminio/covers;
+      /usr/bin/mc anonymous set public myminio/qrcodes;
+      echo 'Buckets initialized successfully';
+      exit 0;
+      "
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  frontend-next-cache:
