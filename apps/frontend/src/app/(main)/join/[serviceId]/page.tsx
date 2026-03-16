@@ -269,13 +269,10 @@ export default function JoinQueuePage({
         open={!!forfeitEntry}
         onOpenChange={(open) => !open && setForfeitEntry(null)}
         currentEntry={forfeitEntry}
-        onConfirm={() =>
-          forfeitEntry &&
-          leaveMutation.mutate({
-            entryId: forfeitEntry.id,
-            forForfeit: true,
-          })
-        }
+        onConfirm={() => {
+          if (forfeitEntry)
+            leaveMutation.mutate({ entryId: forfeitEntry.id, forForfeit: true });
+        }}
         isPending={leaveMutation.isPending || joinMutation.isPending}
       />
     </div>

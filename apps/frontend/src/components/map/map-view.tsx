@@ -88,7 +88,7 @@ export default function MapView({
 
       <MarkerClusterGroup
         chunkedLoading
-        iconCreateFunction={(cluster) => {
+        iconCreateFunction={(cluster: { getChildCount: () => number }) => {
           const count = cluster.getChildCount();
           return L.divIcon({
             className: "",
