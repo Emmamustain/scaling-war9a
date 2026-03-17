@@ -6,10 +6,10 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
+      - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL:-https://api-war9a.neurocrow.vip}
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.war9a-frontend.rule=Host(`${DOMAIN:-war9a.example.com}`)"
+      - "traefik.http.routers.war9a-frontend.rule=Host(`war9a.neurocrow.vip`)"
       - "traefik.http.routers.war9a-frontend.entrypoints=web-secured"
       - "traefik.http.routers.war9a-frontend.tls.certresolver=letsencrypt"
       - "traefik.http.services.war9a-frontend.loadbalancer.server.port=3000"
@@ -25,27 +25,27 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
-      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
-      - BETTER_AUTH_URL=${BETTER_AUTH_URL}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@war9a-postgres:5432/war9a}
+      - REDIS_URL=${REDIS_URL:-redis://:war9aredis2024pass@war9a-redis:6379}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-war9aauthsecretkeyproduction2024}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-https://api-war9a.neurocrow.vip}
       - SESSION_COOKIE_SECURE=true
       - COOKIE_SAME_SITE=lax
-      - COOKIE_DOMAIN=${COOKIE_DOMAIN}
-      - FRONTEND_URL=${FRONTEND_URL}
-      - TRUSTED_ORIGINS=${TRUSTED_ORIGINS}
-      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
+      - COOKIE_DOMAIN=${COOKIE_DOMAIN:-.neurocrow.vip}
+      - FRONTEND_URL=${FRONTEND_URL:-https://war9a.neurocrow.vip}
+      - TRUSTED_ORIGINS=${TRUSTED_ORIGINS:-https://war9a.neurocrow.vip}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-https://war9a.neurocrow.vip}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
       - MINIO_ENDPOINT=${MINIO_ENDPOINT:-war9a-minio}
       - MINIO_PORT=${MINIO_PORT:-9000}
       - MINIO_USE_SSL=${MINIO_USE_SSL:-false}
-      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
-      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
-      - MINIO_PUBLIC_ENDPOINT=${MINIO_PUBLIC_ENDPOINT}
-      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
-      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
-      - VAPID_EMAIL=${VAPID_EMAIL}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-war9aminiouser}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-war9aminiosecret2024}
+      - MINIO_PUBLIC_ENDPOINT=${MINIO_PUBLIC_ENDPOINT:-https://cdn-war9a.neurocrow.vip}
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
+      - VAPID_EMAIL=${VAPID_EMAIL:-noreply@neurocrow.vip}
       - SMTP_HOST=${SMTP_HOST:-}
       - SMTP_PORT=${SMTP_PORT:-587}
       - SMTP_USER=${SMTP_USER:-}
@@ -53,7 +53,7 @@ services:
       - EMAIL_FROM=${EMAIL_FROM:-noreply@war9a.app}
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.war9a-backend.rule=Host(`api.${DOMAIN:-war9a.example.com}`)"
+      - "traefik.http.routers.war9a-backend.rule=Host(`api-war9a.neurocrow.vip`)"
       - "traefik.http.routers.war9a-backend.entrypoints=web-secured"
       - "traefik.http.routers.war9a-backend.tls.certresolver=letsencrypt"
       - "traefik.http.services.war9a-backend.loadbalancer.server.port=4000"
@@ -77,7 +77,7 @@ services:
       context: .
       dockerfile: Dockerfile.migrator
     environment:
-      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@war9a-postgres:5432/war9a}
     networks:
       - app-network
     depends_on:
@@ -89,7 +89,7 @@ services:
     restart: unless-stopped
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
       - POSTGRES_DB=${POSTGRES_DB:-war9a}
     volumes:
       - war9a_postgres_data:/var/lib/postgresql/data
@@ -105,13 +105,13 @@ services:
   war9a-redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-war9aredis2024pass}
     volumes:
       - war9a_redis_data:/data
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-war9aredis2024pass}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 20
@@ -120,8 +120,9 @@ services:
     image: minio/minio:latest
     restart: unless-stopped
     environment:
-      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-war9aminiouser}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-war9aminiosecret2024}
+      MINIO_BROWSER_REDIRECT_URL: ${MINIO_BROWSER_REDIRECT_URL:-https://storage-war9a.neurocrow.vip}
     command: server /data --console-address ":9001"
     volumes:
       - war9a_minio_data:/data
@@ -129,7 +130,7 @@ services:
       - app-network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.war9a-minio.rule=Host(`cdn.${DOMAIN:-war9a.example.com}`)"
+      - "traefik.http.routers.war9a-minio.rule=Host(`storage-war9a.neurocrow.vip`) || Host(`cdn-war9a.neurocrow.vip`)"
       - "traefik.http.routers.war9a-minio.entrypoints=web-secured"
       - "traefik.http.routers.war9a-minio.tls.certresolver=letsencrypt"
       - "traefik.http.services.war9a-minio.loadbalancer.server.port=9000"
@@ -140,7 +141,7 @@ services:
       - war9a-minio
     entrypoint: >
       /bin/sh -c "
-      until /usr/bin/mc alias set myminio http://war9a-minio:9000 ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY}; do
+      until /usr/bin/mc alias set myminio http://war9a-minio:9000 ${MINIO_ACCESS_KEY:-war9aminiouser} ${MINIO_SECRET_KEY:-war9aminiosecret2024}; do
         echo 'Waiting for MinIO...'
         sleep 2
       done;
@@ -161,9 +162,15 @@ services:
     image: ghcr.io/drizzle-team/drizzle-studio-gateway:latest
     restart: unless-stopped
     environment:
-      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@war9a-postgres:5432/war9a}
     networks:
       - app-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.war9a-drizzle.rule=Host(`db-war9a.neurocrow.vip`)"
+      - "traefik.http.routers.war9a-drizzle.entrypoints=web-secured"
+      - "traefik.http.routers.war9a-drizzle.tls.certresolver=letsencrypt"
+      - "traefik.http.services.war9a-drizzle.loadbalancer.server.port=4983"
 
   war9a-prometheus:
     image: prom/prometheus:latest
@@ -178,7 +185,7 @@ services:
     image: grafana/grafana:latest
     restart: unless-stopped
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-war9agrafana2024}
     volumes:
       - war9a_grafana_data:/var/lib/grafana
       - ./monitoring/grafana:/etc/grafana/provisioning:ro
@@ -186,6 +193,12 @@ services:
       - app-network
     depends_on:
       - war9a-prometheus
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.war9a-grafana.rule=Host(`monitor-war9a.neurocrow.vip`)"
+      - "traefik.http.routers.war9a-grafana.entrypoints=web-secured"
+      - "traefik.http.routers.war9a-grafana.tls.certresolver=letsencrypt"
+      - "traefik.http.services.war9a-grafana.loadbalancer.server.port=3000"
 
 networks:
   app-network:
