@@ -86,7 +86,7 @@ services:
       - COOKIE_DOMAIN=
       - FRONTEND_URL=${FRONTEND_URL:-https://war9a.localhost}
       - TRUSTED_ORIGINS=${TRUSTED_ORIGINS:-https://war9a.localhost}
-      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-https://war9a.localhost}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-https://war9a.localhost,http://localhost:3000,http://10.0.2.2:3000,http://localhost:8080}
       - TRUST_PROXY=true
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
