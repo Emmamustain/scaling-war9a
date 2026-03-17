@@ -157,15 +157,13 @@ services:
     networks:
       - app-network
 
-  drizzle-gateway:
+  war9a-drizzle-gateway:
     image: ghcr.io/drizzle-team/drizzle-studio-gateway:latest
     restart: unless-stopped
     environment:
       - DATABASE_URL=${DATABASE_URL}
     networks:
       - app-network
-    profiles:
-      - studio
 
   war9a-prometheus:
     image: prom/prometheus:latest
@@ -175,8 +173,6 @@ services:
       - war9a_prometheus_data:/prometheus
     networks:
       - app-network
-    profiles:
-      - monitoring
 
   war9a-grafana:
     image: grafana/grafana:latest
@@ -190,8 +186,6 @@ services:
       - app-network
     depends_on:
       - war9a-prometheus
-    profiles:
-      - monitoring
 
 networks:
   app-network:
