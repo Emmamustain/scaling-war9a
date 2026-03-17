@@ -1,0 +1,16 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package.json package-lock.json* ./
+COPY apps/backend/package.json ./apps/backend/
+COPY apps/frontend/package.json ./apps/frontend/
+COPY packages/shared/drizzle/package.json ./packages/shared/drizzle/
+COPY packages/shared/types/package.json ./packages/shared/types/
+COPY packages/shared/mobile/package.json ./packages/shared/mobile/
+
+RUN npm install
+
+COPY . .
+
+CMD ["npx", "nx", "run-many", "-t", "dev", "--projects", "@shared/drizzle,@shared/types,@shared/mobile", "--parallel"]

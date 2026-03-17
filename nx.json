@@ -1,0 +1,38 @@
+{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "npmScope": "war9a.localhost",
+  "workspaceLayout": {
+    "appsDir": "apps",
+    "libsDir": "packages"
+  },
+  "namedInputs": {
+    "default": [
+      "{projectRoot}/**/*",
+      "!{projectRoot}/dist/**",
+      "!{projectRoot}/build/**",
+      "!{projectRoot}/.next/**"
+    ],
+    "prod": [
+      "default",
+      "!{projectRoot}/**/*.spec.*",
+      "!{projectRoot}/**/*.test.*"
+    ]
+  },
+  "targetDefaults": {
+    "build": {
+      "inputs": ["prod"],
+      "dependsOn": ["^build"],
+      "outputs": ["{projectRoot}/dist"]
+    },
+    "dev": {
+      "cache": false,
+      "dependsOn": ["^build"]
+    },
+    "lint": {
+      "inputs": ["default"]
+    },
+    "test": {
+      "inputs": ["default"]
+    }
+  }
+}

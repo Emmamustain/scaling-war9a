@@ -1,0 +1,205 @@
+services:
+  war9a-frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile.prod
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.war9a-frontend.rule=Host(`${DOMAIN:-war9a.example.com}`)"
+      - "traefik.http.routers.war9a-frontend.entrypoints=web-secured"
+      - "traefik.http.routers.war9a-frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.war9a-frontend.loadbalancer.server.port=3000"
+    networks:
+      - app-network
+    depends_on:
+      - war9a-backend
+
+  war9a-backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile.prod
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL}
+      - SESSION_COOKIE_SECURE=true
+      - COOKIE_SAME_SITE=lax
+      - COOKIE_DOMAIN=${COOKIE_DOMAIN}
+      - FRONTEND_URL=${FRONTEND_URL}
+      - TRUSTED_ORIGINS=${TRUSTED_ORIGINS}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT:-war9a-minio}
+      - MINIO_PORT=${MINIO_PORT:-9000}
+      - MINIO_USE_SSL=${MINIO_USE_SSL:-false}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - MINIO_PUBLIC_ENDPOINT=${MINIO_PUBLIC_ENDPOINT}
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
+      - VAPID_EMAIL=${VAPID_EMAIL}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - EMAIL_FROM=${EMAIL_FROM:-noreply@war9a.app}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.war9a-backend.rule=Host(`api.${DOMAIN:-war9a.example.com}`)"
+      - "traefik.http.routers.war9a-backend.entrypoints=web-secured"
+      - "traefik.http.routers.war9a-backend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.war9a-backend.loadbalancer.server.port=4000"
+    networks:
+      - app-network
+    depends_on:
+      war9a-migrator:
+        condition: service_completed_successfully
+      war9a-postgres:
+        condition: service_healthy
+      war9a-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  war9a-migrator:
+    build:
+      context: .
+      dockerfile: Dockerfile.migrator
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+    networks:
+      - app-network
+    depends_on:
+      war9a-postgres:
+        condition: service_healthy
+
+  war9a-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB:-war9a}
+    volumes:
+      - war9a_postgres_data:/var/lib/postgresql/data
+      - ./scripts/db-backup:/backup
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-war9a}"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  war9a-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+    volumes:
+      - war9a_redis_data:/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  war9a-minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    command: server /data --console-address ":9001"
+    volumes:
+      - war9a_minio_data:/data
+    networks:
+      - app-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.war9a-minio.rule=Host(`cdn.${DOMAIN:-war9a.example.com}`)"
+      - "traefik.http.routers.war9a-minio.entrypoints=web-secured"
+      - "traefik.http.routers.war9a-minio.tls.certresolver=letsencrypt"
+      - "traefik.http.services.war9a-minio.loadbalancer.server.port=9000"
+
+  war9a-createbuckets:
+    image: minio/mc:latest
+    depends_on:
+      - war9a-minio
+    entrypoint: >
+      /bin/sh -c "
+      until /usr/bin/mc alias set myminio http://war9a-minio:9000 ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY}; do
+        echo 'Waiting for MinIO...'
+        sleep 2
+      done;
+      /usr/bin/mc mb myminio/avatars || true;
+      /usr/bin/mc mb myminio/logos || true;
+      /usr/bin/mc mb myminio/covers || true;
+      /usr/bin/mc mb myminio/qrcodes || true;
+      /usr/bin/mc anonymous set public myminio/avatars;
+      /usr/bin/mc anonymous set public myminio/logos;
+      /usr/bin/mc anonymous set public myminio/covers;
+      /usr/bin/mc anonymous set public myminio/qrcodes;
+      exit 0;
+      "
+    networks:
+      - app-network
+
+  drizzle-gateway:
+    image: ghcr.io/drizzle-team/drizzle-studio-gateway:latest
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+    networks:
+      - app-network
+    profiles:
+      - studio
+
+  war9a-prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - war9a_prometheus_data:/prometheus
+    networks:
+      - app-network
+    profiles:
+      - monitoring
+
+  war9a-grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - war9a_grafana_data:/var/lib/grafana
+      - ./monitoring/grafana:/etc/grafana/provisioning:ro
+    networks:
+      - app-network
+    depends_on:
+      - war9a-prometheus
+    profiles:
+      - monitoring
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  war9a_postgres_data:
+  war9a_redis_data:
+  war9a_minio_data:
+  war9a_prometheus_data:
+  war9a_grafana_data:

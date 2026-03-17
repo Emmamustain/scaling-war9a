@@ -1,0 +1,15 @@
+FROM node:20-alpine
+WORKDIR /app
+
+# Install only what shared packages need
+COPY package.json package-lock.json* ./
+COPY packages/shared/drizzle/package.json ./packages/shared/drizzle/
+COPY packages/shared/types/package.json ./packages/shared/types/
+
+RUN npm install --workspace=@shared/drizzle --workspace=@shared/types
+
+# Copy shared package source only
+COPY packages/shared/ ./packages/shared/
+COPY tsconfig.base.json ./
+
+CMD ["sh", "-c", "npx tsc -p packages/shared/drizzle/tsconfig.json --watch & npx tsc --build packages/shared/types/tsconfig.json --watch & wait"]

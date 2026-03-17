@@ -1,0 +1,20 @@
+FROM node:20-alpine
+WORKDIR /app
+
+RUN apk add --no-cache python3 make g++
+
+COPY package.json package-lock.json* ./
+COPY apps/frontend/package.json ./apps/frontend/
+COPY apps/backend/package.json ./apps/backend/
+COPY packages/shared/drizzle/package.json ./packages/shared/drizzle/
+COPY packages/shared/types/package.json ./packages/shared/types/
+COPY packages/shared/mobile/package.json ./packages/shared/mobile/
+
+RUN npm install
+
+COPY . .
+
+WORKDIR /app/apps/frontend
+EXPOSE 3000
+
+CMD ["npx", "next", "dev"]

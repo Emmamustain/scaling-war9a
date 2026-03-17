@@ -1,0 +1,15 @@
+FROM node:20-alpine
+ENV NODE_ENV=production
+WORKDIR /app
+
+# Only install what the drizzle package needs
+COPY package.json package-lock.json* ./
+COPY packages/shared/drizzle/package.json ./packages/shared/drizzle/
+
+RUN npm install --workspace=@shared/drizzle --ignore-scripts
+
+# Copy only the drizzle package source (schema, config, migrations)
+COPY packages/shared/drizzle/ ./packages/shared/drizzle/
+
+WORKDIR /app/packages/shared/drizzle
+CMD ["npm", "run", "drizzle:migrate"]

@@ -1,0 +1,47 @@
+http:
+  middlewares:
+    https-redirect:
+      redirectScheme:
+        scheme: https
+        permanent: true
+
+  routers:
+    frontend-http-redirect:
+      rule: Host(`war9a.localhost`)
+      entrypoints:
+        - web
+      middlewares:
+        - https-redirect
+      service: noop@internal
+
+    backend-http-redirect:
+      rule: Host(`api.war9a.localhost`)
+      entrypoints:
+        - web
+      middlewares:
+        - https-redirect
+      service: noop@internal
+
+    traefik-http-redirect:
+      rule: Host(`traefik.war9a.localhost`)
+      entrypoints:
+        - web
+      middlewares:
+        - https-redirect
+      service: noop@internal
+
+    storage-http-redirect:
+      rule: Host(`storage.war9a.localhost`)
+      entrypoints:
+        - web
+      middlewares:
+        - https-redirect
+      service: noop@internal
+
+    cdn-http-redirect:
+      rule: Host(`cdn.war9a.localhost`)
+      entrypoints:
+        - web
+      middlewares:
+        - https-redirect
+      service: noop@internal

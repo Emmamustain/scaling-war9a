@@ -1,0 +1,22 @@
+FROM node:20-alpine
+ENV NODE_ENV=production
+WORKDIR /app
+
+RUN apk add --no-cache python3 make g++ vips-dev
+RUN npm install -g node-gyp
+
+COPY package.json package-lock.json* tsconfig*.json nx.json ./
+COPY apps/backend/package.json ./apps/backend/
+COPY apps/frontend/package.json ./apps/frontend/
+COPY packages/shared/drizzle/package.json ./packages/shared/drizzle/
+COPY packages/shared/types/package.json ./packages/shared/types/
+COPY packages/shared/mobile/package.json ./packages/shared/mobile/
+
+RUN npm install
+
+COPY . .
+
+RUN npx nx run-many -t build --projects=@shared/drizzle,@shared/types --parallel=false --skip-nx-cache
+
+WORKDIR /app/packages/shared/drizzle
+CMD ["npm", "run", "drizzle:migrate"]

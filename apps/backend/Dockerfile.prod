@@ -1,0 +1,61 @@
+# ---------- BUILDER ----------
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+# Install build tools
+RUN apk add --no-cache python3 make g++
+
+# 1. Copy root config files
+COPY package.json package-lock.json* tsconfig*.json nx.json ./
+
+# 2. Copy ALL workspace package.json files (this ensures local workspace links work)
+COPY apps/backend/package.json ./apps/backend/
+COPY apps/frontend/package.json ./apps/frontend/
+COPY packages/shared/drizzle/package.json ./packages/shared/drizzle/
+COPY packages/shared/types/package.json ./packages/shared/types/
+
+# 3. Install ALL dependencies (including devDeps for building)
+RUN npm install
+
+# 4. Copy the rest of the source code
+COPY . .
+
+# 5. Build everything
+RUN npx nx run-many -t build --projects=@shared/drizzle,@shared/types --parallel=false --skip-nx-cache
+RUN cd apps/backend && npm run build
+
+# ---------- RUNTIME ----------
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+
+# Install curl for healthcheck
+RUN apk add --no-cache curl
+
+# Install tsconfig-paths to handle absolute path aliases in production
+RUN npm install -g tsconfig-paths
+
+# Only copy necessary artifacts for a clean production install
+COPY package.json package-lock.json* ./
+COPY apps/backend/package.json ./apps/backend/
+COPY packages/shared/drizzle/package.json ./packages/shared/drizzle/
+COPY packages/shared/types/package.json ./packages/shared/types/
+
+RUN npm install --omit=dev
+
+# Copy tsconfig files needed for tsconfig-paths to work
+COPY tsconfig.base.json ./
+COPY apps/backend/tsconfig.json ./apps/backend/
+
+# Copy compiled artifacts
+COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
+COPY --from=builder /app/packages/shared/drizzle/dist ./packages/shared/drizzle/dist
+COPY --from=builder /app/packages/shared/types/dist ./packages/shared/types/dist
+
+EXPOSE 4000
+# Use tsconfig-paths/register to resolve the 'src/' alias in compiled JS files
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=40s \
+  CMD curl -f http://localhost:4000/health || exit 1
+
+WORKDIR /app/apps/backend
+CMD ["node", "-r", "tsconfig-paths/register", "dist/src/main.js"]
