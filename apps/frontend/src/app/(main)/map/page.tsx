@@ -62,7 +62,7 @@ export default function MapPage() {
     }));
 
   return (
-    <div className="relative h-[calc(100vh-4rem)] md:h-[calc(100vh-4rem)]">
+    <div className="relative h-[100dvh] md:h-[calc(100vh-72px)]">
       {isLoading ? (
         <div className="flex h-full items-center justify-center">
           <Loader2 className="size-8 animate-spin text-primary" />
@@ -76,7 +76,7 @@ export default function MapPage() {
       )}
 
       <Button
-        className="absolute bottom-4 right-4 z-[1000] shadow-lg"
+        className="absolute bottom-20 right-4 z-[1000] shadow-lg md:bottom-4"
         size="sm"
         onClick={handleLocate}
         disabled={locationLoading}
@@ -90,7 +90,7 @@ export default function MapPage() {
       </Button>
 
       {selectedBusiness && (
-        <div className="absolute bottom-16 left-4 right-4 z-[1000] mx-auto max-w-sm rounded-2xl border border-border bg-card p-4 shadow-xl">
+        <div className="absolute bottom-32 left-4 right-4 z-[1000] mx-auto max-w-sm rounded-2xl border border-border bg-card p-4 shadow-xl md:bottom-16">
           <div className="mb-3 flex items-start justify-between">
             <div>
               <h3 className="font-bold">{selectedBusiness.name}</h3>

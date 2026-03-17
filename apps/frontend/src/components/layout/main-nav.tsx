@@ -7,7 +7,6 @@ import {
   Bell,
   LogIn,
   LogOut,
-  Menu,
   Moon,
   Sun,
   User,
@@ -35,7 +34,6 @@ export function MainNav() {
   const router = useRouter();
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -224,125 +222,6 @@ export function MainNav() {
         </div>
       </header>
 
-      {/* Mobile nav */}
-      <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-border bg-background/90 backdrop-blur-md px-4 md:hidden">
-        <Link href="/">
-          <Image
-            src="/images/logo-w.svg"
-            height={40}
-            width={40}
-            alt="War9a"
-            className="hidden dark:block"
-          />
-          <Image
-            src="/images/logo.svg"
-            height={40}
-            width={40}
-            alt="War9a"
-            className="dark:hidden"
-          />
-        </Link>
-
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setMobileOpen(!mobileOpen)}
-        >
-          <Menu className="size-5" />
-        </Button>
-      </header>
-
-      {/* Mobile drawer */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-50 md:hidden">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setMobileOpen(false)}
-          />
-          <div className="absolute right-0 top-0 flex h-full w-72 flex-col gap-4 bg-background p-6 shadow-xl">
-            <div className="flex items-center justify-between">
-              <span className="text-lg font-bold">Menu</span>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setMobileOpen(false)}
-              >
-                ✕
-              </Button>
-            </div>
-
-            <nav className="flex flex-col gap-2">
-              <MobileNavLink
-                href="/discover"
-                onClick={() => setMobileOpen(false)}
-              >
-                Discover
-              </MobileNavLink>
-              {isAuthenticated && myQueueEntries.length > 0 && (
-                <MobileNavLink
-                  href={`/queue/${myQueueEntries[0].id}`}
-                  onClick={() => setMobileOpen(false)}
-                >
-                  My Queue ({myQueueEntries.length})
-                </MobileNavLink>
-              )}
-              <MobileNavLink href="/map" onClick={() => setMobileOpen(false)}>
-                Map
-              </MobileNavLink>
-              <MobileNavLink href="/faq" onClick={() => setMobileOpen(false)}>
-                FAQ
-              </MobileNavLink>
-            </nav>
-
-            <div className="mt-auto flex flex-col gap-2">
-              {isAuthenticated ? (
-                <>
-                  {(isAdmin || isOwner || isWorker) && (
-                    <Button asChild variant="outline">
-                      <Link
-                        href={dashboardHref}
-                        onClick={() => setMobileOpen(false)}
-                      >
-                        <LayoutDashboard className="size-4" />
-                        Dashboard
-                      </Link>
-                    </Button>
-                  )}
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      handleLogout();
-                      setMobileOpen(false);
-                    }}
-                  >
-                    <LogOut className="size-4" />
-                    Sign Out
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button asChild variant="outline">
-                    <Link
-                      href="/sign-in"
-                      onClick={() => setMobileOpen(false)}
-                    >
-                      Sign In
-                    </Link>
-                  </Button>
-                  <Button asChild>
-                    <Link
-                      href="/sign-up"
-                      onClick={() => setMobileOpen(false)}
-                    >
-                      Get Started
-                    </Link>
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
@@ -371,22 +250,3 @@ function NavLink({
   );
 }
 
-function MobileNavLink({
-  href,
-  children,
-  onClick,
-}: {
-  href: string;
-  children: React.ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <Link
-      href={href}
-      onClick={onClick}
-      className="rounded-lg px-3 py-2.5 text-sm font-medium transition-colors hover:bg-secondary"
-    >
-      {children}
-    </Link>
-  );
-}

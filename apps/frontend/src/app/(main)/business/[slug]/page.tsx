@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronLeft, Clock, Users, Frown, Smile, ThumbsDown, ThumbsUp, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { share } from "@shared/mobile";
@@ -79,6 +80,7 @@ export default function BusinessPage({
   const { slug } = use(params);
   const { isAuthenticated, user } = useAuthStore();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
   const [forfeitEntry, setForfeitEntry] = useState<{
@@ -195,195 +197,213 @@ export default function BusinessPage({
   const lng = parseFloat(business.longitude ?? "0");
 
   return (
-    <main className="flex min-h-screen flex-col lg:px-24">
-      {/* Business Header — cover + round logo */}
+    <main className="flex min-h-screen flex-col">
+      {/* ── Mobile top bar: back + share ── */}
+      <div className="flex items-center justify-between px-4 py-2 md:hidden">
+        <button
+          onClick={() => router.back()}
+          className="flex items-center gap-1 rounded-full p-1.5 text-sm text-muted-foreground hover:bg-secondary"
+        >
+          <ChevronLeft className="size-5" />
+        </button>
+        <div className="flex gap-1">
+          <Button variant="ghost" size="icon" className="size-8" onClick={handleShare}>
+            <Share2 className="size-4" />
+          </Button>
+          <QrModal slug={business.slug} businessName={business.name} />
+        </div>
+      </div>
+
+      {/* ── Business Header ── */}
       <BusinessHeader
         name={business.name}
         slug={business.slug}
         logoUrl={business.logoUrl}
         coverUrl={business.coverUrl}
+        isOpen={business.isOpen}
+        city={business.city}
       />
 
-      {/* Actions row */}
-      <div className="flex justify-end gap-2 px-6 py-3">
+      {/* ── Desktop actions row ── */}
+      <div className="hidden justify-end gap-2 px-6 py-3 md:flex lg:px-24">
         <Button variant="outline" size="sm" onClick={handleShare}>
           <Share2 className="size-4" />
         </Button>
         <QrModal slug={business.slug} businessName={business.name} />
       </div>
 
-      {/* Collapsible Business Info */}
-      <div className="mt-2 px-6">
-        <button
-          className="flex items-center gap-1 text-base font-semibold text-gray-900 dark:text-white duration-150 hover:scale-[0.99] hover:opacity-70"
-          onClick={() => setInfoOpen((v) => !v)}
-        >
-          Business Information
-          <ChevronDown
-            className={cn("transition-transform duration-300", infoOpen && "rotate-180")}
-          />
-        </button>
-        <p className="mt-1 max-w-2xl text-sm leading-6 text-gray-500">
-          Business details and applications.
-        </p>
-
-        {infoOpen && (
-          <div className="mt-4 border-t border-gray-100 dark:border-gray-700">
-            <dl className="divide-y divide-gray-100 dark:divide-gray-700">
-              <InfoRow label="Business Name" value={business.name} />
-              <div className="px-4 py-4 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-                <dt className="text-sm font-medium text-gray-900 dark:text-gray-200">Categories</dt>
-                <dd className="mt-1 flex flex-wrap gap-2 sm:col-span-2 sm:mt-0">
-                  {business.categories.map(({ category }: { category: { id: string; name: string } }) => (
-                    <Badge key={category.id}>{category.name}</Badge>
+      <div className="px-4 md:px-6 lg:px-24">
+        {/* Step 1 — choose a service */}
+        {!selectedServiceId && (
+          <div className="mt-2 md:mt-12">
+            {business.services.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-4 py-16 opacity-40">
+                <Frown size={80} />
+                <p className="text-xl font-bold">No Services Available</p>
+              </div>
+            ) : (
+              <>
+                <h2 className="mb-3 text-lg font-bold md:mb-6 md:text-2xl">Choose a service</h2>
+                <div className="grid gap-3 md:gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {business.services.map((service: BusinessDetail["services"][number]) => (
+                    <button
+                      key={service.id}
+                      onClick={() => setSelectedServiceId(service.id)}
+                      className="group flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/50 hover:shadow-sm active:scale-[0.98] md:flex-col md:items-start md:gap-3 md:border-2 md:border-neutral-200 md:bg-white md:p-6 md:dark:border-neutral-700 md:dark:bg-neutral-800"
+                    >
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 md:hidden">
+                        <Users className="size-5 text-primary" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="font-semibold capitalize group-hover:text-primary transition-colors md:text-lg">
+                            {service.name}
+                          </p>
+                          <ChevronLeft className="size-4 rotate-180 text-muted-foreground md:size-5" />
+                        </div>
+                        {service.description && (
+                          <p className="mt-0.5 text-xs text-muted-foreground line-clamp-1 md:mt-2 md:text-sm md:line-clamp-2">
+                            {service.description}
+                          </p>
+                        )}
+                        <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground md:mt-3">
+                          {service.averageTime && (
+                            <span className="flex items-center gap-1">
+                              <Clock className="size-3" />
+                              ~{service.averageTime} min
+                            </span>
+                          )}
+                          {service.maxCapacity && (
+                            <span className="flex items-center gap-1">
+                              <Users className="size-3" />
+                              {service.maxCapacity} max
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
                   ))}
-                </dd>
-              </div>
-              <InfoRow label="Phone" value={business.phone ?? "Not Available"} />
-              <div className="px-4 py-4 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
-                <dt className="text-sm font-medium text-gray-900 dark:text-gray-200">Reputation</dt>
-                <dd className="mt-1 flex gap-6 sm:col-span-2 sm:mt-0">
-                  <span className="flex items-center gap-1 text-sm">
-                    120 <ThumbsUp color="#baceab" size={18} />
-                  </span>
-                  <span className="flex items-center gap-1 text-sm">
-                    20 <ThumbsDown color="#ceabab" size={18} />
-                  </span>
-                </dd>
-              </div>
-              <InfoRow label="About" value={business.description} />
-            </dl>
-
-            {lat !== 0 && lng !== 0 && (
-              <div className="mt-4 h-[400px] w-full overflow-hidden rounded-xl">
-                <BusinessMap lat={lat} lng={lng} name={business.name} />
-              </div>
+                </div>
+              </>
             )}
           </div>
         )}
-      </div>
 
-      {/* Step 1 — choose a service */}
-      {!selectedServiceId && (
-        <div className="mt-12 px-6">
-          {business.services.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-4 py-16 opacity-40">
-              <Frown size={80} />
-              <p className="text-xl font-bold">No Services Available</p>
+        {/* Step 2 — queue view for selected service */}
+        {selectedServiceId && activeService && (
+          <div className="mt-2 md:mt-8">
+            {/* Back + service title */}
+            <div className="mb-4 flex items-center gap-2 md:mb-6 md:gap-3">
+              <button
+                onClick={() => setSelectedServiceId(null)}
+                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ChevronLeft className="size-4" />
+                Back
+              </button>
+              <span className="text-muted-foreground/40">/</span>
+              <h2 className="text-base font-bold capitalize md:text-xl">{activeService.name}</h2>
+              {serviceStatus && (
+                <span
+                  className={cn(
+                    "ml-auto text-xs font-medium px-2 py-1 rounded-full",
+                    serviceStatus.status === "open"
+                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                      : "bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400",
+                  )}
+                >
+                  {serviceStatus.waitingCount} waiting
+                </span>
+              )}
             </div>
-          ) : (
-            <>
-              <h2 className="mb-6 text-2xl font-bold">Choose a service</h2>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {business.services.map((service: BusinessDetail["services"][number]) => (
-                  <button
-                    key={service.id}
-                    onClick={() => setSelectedServiceId(service.id)}
-                    className="group flex flex-col items-start gap-3 rounded-xl border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-6 text-left transition-all duration-200 hover:border-blue-500 hover:shadow-md active:scale-[0.98]"
-                  >
-                    <div className="flex w-full items-center justify-between">
-                      <p className="text-lg font-semibold capitalize group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                        {service.name}
-                      </p>
-                      <ChevronLeft className="size-5 rotate-180 text-neutral-400 group-hover:text-blue-500 transition-colors" />
-                    </div>
 
-                    {service.description && (
-                      <p className="text-sm text-neutral-500 dark:text-neutral-400 line-clamp-2">
-                        {service.description}
-                      </p>
-                    )}
+            {/* Queue area */}
+            <div className="space-y-3 md:grid md:w-full md:grid-cols-[repeat(auto-fit,minmax(280px,1fr))] md:gap-4 md:space-y-0 md:rounded-xl md:bg-neutral-200/60 md:p-4 md:pt-8 md:dark:bg-neutral-800/60">
+              <ActionQueueCard
+                position={
+                  myEntry
+                    ? (waitingQueue.findIndex((e: QueueEntry) => e.id === myEntry.id) + 1) || 1
+                    : waitingQueue.length + 1
+                }
+                alreadyQueued={!!myEntry}
+                isPending={joinMutation.isPending || leaveMutation.isPending}
+                isAuthenticated={isAuthenticated}
+                isOpen={business.isOpen}
+                onJoin={() => joinMutation.mutate()}
+                onLeave={() =>
+                  myEntry &&
+                  leaveMutation.mutate({ entryId: myEntry.id })
+                }
+              />
 
-                    <div className="flex items-center gap-4 text-xs text-neutral-400">
-                      {service.averageTime && (
-                        <span className="flex items-center gap-1">
-                          <Clock className="size-3.5" />
-                          ~{service.averageTime} min avg
-                        </span>
-                      )}
-                      {service.maxCapacity && (
-                        <span className="flex items-center gap-1">
-                          <Users className="size-3.5" />
-                          Up to {service.maxCapacity}
-                        </span>
-                      )}
-                    </div>
-                  </button>
+              {waitingQueue.length > 0 ? (
+                waitingQueue.map((entry: QueueEntry, index: number) => (
+                  <QueueCard
+                    key={entry.id}
+                    displayName={entry.user?.displayName ?? entry.user?.username ?? "Anonymous"}
+                    position={index + 1}
+                    isPresent={entry.present}
+                    highlight={entry.user?.id === user?.id}
+                  />
+                ))
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card py-8 md:h-[157px] md:min-w-[280px] md:rounded md:border-0 md:bg-white md:dark:bg-neutral-700">
+                  <Smile size={48} className="text-muted-foreground/40 md:mb-2" />
+                  <p className="font-semibold text-muted-foreground">
+                    Be the first to join!
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Business Info (collapsible, below services) ── */}
+        <div className="mt-6 border-t border-border pt-4 md:mt-8">
+          <button
+            className="flex w-full items-center justify-between text-sm font-semibold md:text-base"
+            onClick={() => setInfoOpen((v) => !v)}
+          >
+            About this business
+            <ChevronDown
+              className={cn("size-4 transition-transform duration-200", infoOpen && "rotate-180")}
+            />
+          </button>
+
+          {infoOpen && (
+            <div className="mt-3 space-y-3 text-sm">
+              {business.description && (
+                <p className="text-muted-foreground">{business.description}</p>
+              )}
+              <div className="flex flex-wrap gap-1.5">
+                {business.categories.map(({ category }: { category: { id: string; name: string } }) => (
+                  <Badge key={category.id} variant="secondary">{category.name}</Badge>
                 ))}
               </div>
-            </>
+              {business.phone && (
+                <p className="text-muted-foreground">
+                  <span className="font-medium text-foreground">Phone:</span> {business.phone}
+                </p>
+              )}
+              <div className="flex gap-4 text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <ThumbsUp className="size-4 text-green-500" /> 120
+                </span>
+                <span className="flex items-center gap-1">
+                  <ThumbsDown className="size-4 text-red-400" /> 20
+                </span>
+              </div>
+              {lat !== 0 && lng !== 0 && (
+                <div className="h-[200px] w-full overflow-hidden rounded-xl md:h-[400px]">
+                  <BusinessMap lat={lat} lng={lng} name={business.name} />
+                </div>
+              )}
+            </div>
           )}
         </div>
-      )}
+      </div>
 
-      {/* Step 2 — queue view for selected service */}
-      {selectedServiceId && activeService && (
-        <div className="mt-8 px-6">
-          {/* Back + service title */}
-          <div className="mb-6 flex items-center gap-3">
-            <button
-              onClick={() => setSelectedServiceId(null)}
-              className="flex items-center gap-1 text-sm text-neutral-500 hover:text-black dark:hover:text-white transition-colors"
-            >
-              <ChevronLeft className="size-4" />
-              All services
-            </button>
-            <span className="text-neutral-300 dark:text-neutral-600">/</span>
-            <h2 className="text-xl font-bold capitalize">{activeService.name}</h2>
-            {serviceStatus && (
-              <span
-                className={cn(
-                  "ml-auto text-xs font-medium px-2 py-1 rounded-full",
-                  serviceStatus.status === "open"
-                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                    : "bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400",
-                )}
-              >
-                {serviceStatus.waitingCount} waiting · ~{serviceStatus.estimatedWaitMinutes} min
-              </span>
-            )}
-          </div>
-
-          {/* Queue grid */}
-          <div className="grid w-full grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4 rounded-xl bg-neutral-200/60 dark:bg-neutral-800/60 p-4 pt-8">
-            <ActionQueueCard
-              position={
-                myEntry
-                  ? (waitingQueue.findIndex((e: QueueEntry) => e.id === myEntry.id) + 1) || 1
-                  : waitingQueue.length + 1
-              }
-              alreadyQueued={!!myEntry}
-              isPending={joinMutation.isPending || leaveMutation.isPending}
-              isAuthenticated={isAuthenticated}
-              isOpen={business.isOpen}
-              onJoin={() => joinMutation.mutate()}
-              onLeave={() =>
-                myEntry &&
-                leaveMutation.mutate({ entryId: myEntry.id })
-              }
-            />
-
-            {waitingQueue.length > 0 ? (
-              waitingQueue.map((entry: QueueEntry, index: number) => (
-                <QueueCard
-                  key={entry.id}
-                  displayName={entry.user?.displayName ?? entry.user?.username ?? "Anonymous"}
-                  position={index + 1}
-                  isPresent={entry.present}
-                  highlight={entry.user?.id === user?.id}
-                />
-              ))
-            ) : (
-              <div className="relative flex h-[157px] w-full min-w-[280px] flex-col justify-center rounded bg-white dark:bg-neutral-700">
-                <Smile size={80} className="mb-2 w-full text-center text-neutral-400" />
-                <p className="text-center text-xl font-bold text-neutral-400">
-                  Be the first to join!
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <div className="mt-8" />
 
       <ForfeitQueueDialog
         open={!!forfeitEntry}

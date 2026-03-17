@@ -15,6 +15,7 @@ import {
   Loader2,
   ChevronUp,
   ChevronDown,
+  ChevronLeft,
   User,
   UserCheck,
 } from "lucide-react";
@@ -143,6 +144,15 @@ export default function JoinQueuePage({
 
   return (
     <div className="mx-auto max-w-sm px-4 py-10">
+      {status && (
+        <Link
+          href={`/business/${status.businessSlug}`}
+          className="mb-6 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ChevronLeft className="size-4" />
+          {status.businessName}
+        </Link>
+      )}
       <div className="mb-8 text-center">
         <Badge
           variant={isClosed ? "muted" : "success"}

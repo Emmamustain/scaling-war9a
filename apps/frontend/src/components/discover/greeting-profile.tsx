@@ -24,24 +24,24 @@ export default function GreetingProfile() {
   const displayName = user?.displayName ?? user?.username ?? "New Comer";
 
   return (
-    <div className="mb-16 mt-24 flex items-center justify-between">
-      <div className="flex items-center gap-4">
-        <div className="h-[60px] w-[60px] overflow-hidden rounded-full bg-neutral-900 dark:bg-neutral-50">
+    <div className="mb-6 mt-4 flex items-center justify-between md:mb-16 md:mt-24">
+      <div className="flex items-center gap-3">
+        <div className="h-[48px] w-[48px] overflow-hidden rounded-full bg-neutral-900 dark:bg-neutral-50 md:h-[60px] md:w-[60px]">
           <MinidenticonImg
             username={displayName}
             className="scale-75"
           />
         </div>
         <div>
-          <h1 className="text-xl font-semibold">
+          <h1 className="text-lg font-semibold md:text-xl">
             Welcome Back, {displayName}
-            <span className="pl-2 text-2xl">👋</span>
+            <span className="pl-2 text-xl md:text-2xl">👋</span>
           </h1>
-          <p className="opacity-50 text-sm">{quote} — {author}</p>
+          <p className="hidden text-sm opacity-50 md:block">{quote} — {author}</p>
         </div>
       </div>
 
-      <div className="flex gap-2">
+      <div className="hidden gap-2 md:flex">
         <Button asChild>
           <Link href="/history">
             <History size={20} className="mr-2" />
