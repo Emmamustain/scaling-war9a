@@ -32,9 +32,6 @@ ENV NODE_ENV=production
 # Install curl for healthcheck
 RUN apk add --no-cache curl
 
-# Install tsconfig-paths to handle absolute path aliases in production
-RUN npm install -g tsconfig-paths
-
 # Only copy necessary artifacts for a clean production install
 COPY package.json package-lock.json* ./
 COPY apps/backend/package.json ./apps/backend/
