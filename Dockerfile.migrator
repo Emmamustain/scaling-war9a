@@ -12,4 +12,4 @@ RUN npm install --workspace=@shared/drizzle --ignore-scripts
 COPY packages/shared/drizzle/ ./packages/shared/drizzle/
 
 WORKDIR /app/packages/shared/drizzle
-CMD ["npm", "run", "drizzle:migrate"]
+CMD ["node", "migrate.js"]
