@@ -77,6 +77,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.migrator
+    restart: "no"
     environment:
       - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@war9a-postgres:5432/war9a}
     networks:
@@ -146,6 +147,7 @@ services:
 
   war9a-createbuckets:
     image: minio/mc:latest
+    restart: "no"
     depends_on:
       - war9a-minio
     entrypoint: >
