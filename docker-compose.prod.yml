@@ -170,7 +170,7 @@ services:
       - app-network
 
   drizzle-gateway:
-    image: ghcr.io/drizzle-team/drizzle-studio-gateway:latest
+    image: ghcr.io/drizzle-team/gateway:latest
     restart: unless-stopped
     environment:
       - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@war9a-postgres:5432/war9a}
@@ -182,8 +182,6 @@ services:
       - "traefik.http.routers.drizzle-gateway.entrypoints=web-secured"
       - "traefik.http.routers.drizzle-gateway.tls.certresolver=letsencrypt"
       - "traefik.http.services.drizzle-gateway.loadbalancer.server.port=4983"
-    profiles:
-      - studio
 
   war9a-prometheus:
     image: prom/prometheus:latest
@@ -193,8 +191,6 @@ services:
       - war9a_prometheus_data:/prometheus
     networks:
       - app-network
-    profiles:
-      - monitoring
 
   war9a-grafana:
     image: grafana/grafana:latest
@@ -214,8 +210,6 @@ services:
       - "traefik.http.routers.war9a-grafana.entrypoints=web-secured"
       - "traefik.http.routers.war9a-grafana.tls.certresolver=letsencrypt"
       - "traefik.http.services.war9a-grafana.loadbalancer.server.port=3000"
-    profiles:
-      - monitoring
 
 networks:
   app-network:
