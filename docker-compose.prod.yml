@@ -184,22 +184,24 @@ services:
       - "traefik.http.services.drizzle-gateway.loadbalancer.server.port=4983"
 
   war9a-prometheus:
-    image: prom/prometheus:latest
+    build:
+      context: ./monitoring
+      dockerfile: Dockerfile.prometheus
     restart: unless-stopped
     volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - war9a_prometheus_data:/prometheus
     networks:
       - app-network
 
   war9a-grafana:
-    image: grafana/grafana:latest
+    build:
+      context: ./monitoring
+      dockerfile: Dockerfile.grafana
     restart: unless-stopped
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-war9agrafanaadmin}
     volumes:
       - war9a_grafana_data:/var/lib/grafana
-      - ./monitoring/grafana:/etc/grafana/provisioning:ro
     networks:
       - app-network
     depends_on:
