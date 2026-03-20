@@ -9,7 +9,7 @@ const config: CapacitorConfig = {
     // Dev (physical device on same WiFi):      http://<your-machine-ip>:3000
     // Dev (iOS simulator):                     http://localhost:3000
     // Production:                              https://your-deployed-url.com
-    url: "http://10.0.2.2:3000",
+    url: "https://war9a.neurocrow.vip",
     cleartext: true, // allow HTTP in dev; remove for production HTTPS
   },
 };

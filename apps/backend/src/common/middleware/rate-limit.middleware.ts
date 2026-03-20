@@ -10,7 +10,7 @@ export class RateLimitMiddleware implements NestMiddleware {
     standardHeaders: true,
     legacyHeaders: false,
     skip: (req) => {
-      return req.path === '/health';
+      return req.path === '/health' || req.path === '/metrics';
     },
   });
 

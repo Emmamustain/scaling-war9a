@@ -158,6 +158,14 @@ help:
 	@echo "make db-migrate     - Apply pending migrations to the database"
 	@echo "make db-seed        - Seed the database with sample data"
 	@echo "make db-studio      - Open Drizzle Studio"
+	@echo ""
+	@echo "--- Capacitor / Mobile ---"
+	@echo "make cap-dev        - Sync Capacitor pointing to dev server"
+	@echo "make cap-prod       - Sync Capacitor pointing to production server"
+	@echo "make cap-apk        - Build debug Android APK"
+	@echo "make cap-apk-release - Build release Android APK"
+	@echo "make cap-android    - Open Android Studio"
+	@echo "make cap-ios        - Open Xcode (macOS only)"
 	@echo $(HR)
 
 # --- Package Management ---
@@ -192,6 +200,41 @@ shadcn-add:
 	docker-compose -f docker-compose.dev.yml exec -u $(shell id -u):$(shell id -g) frontend npm install
 	npm install
 
+# --- Capacitor / Mobile Commands ---
+cap-dev:
+	@echo $(HR)
+	@echo Syncing Capacitor with dev server...
+	@cd apps/frontend && NEXT_PUBLIC_BACKEND_URL=http://10.0.2.2:4000 npx cap sync
+
+cap-prod:
+	@echo $(HR)
+	@echo Syncing Capacitor with production server...
+	@cd apps/frontend && npx cap sync
+
+cap-apk:
+	@echo $(HR)
+	@echo Building Android APK...
+	@cd apps/frontend && npx cap sync android
+	@cd apps/frontend/android && ./gradlew assembleDebug
+	@echo APK generated at: apps/frontend/android/app/build/outputs/apk/debug/app-debug.apk
+
+cap-apk-release:
+	@echo $(HR)
+	@echo Building Android release APK...
+	@cd apps/frontend && npx cap sync android
+	@cd apps/frontend/android && ./gradlew assembleRelease
+	@echo APK generated at: apps/frontend/android/app/build/outputs/apk/release/
+
+cap-android:
+	@echo $(HR)
+	@echo Opening Android Studio...
+	@cd apps/frontend && npx cap open android
+
+cap-ios:
+	@echo $(HR)
+	@echo Opening Xcode...
+	@cd apps/frontend && npx cap open ios
+
 # --- Database Commands ---
 db-migrate:
 	@echo $(HR)
@@ -215,5 +258,5 @@ db-generate:
 
 	@:
 
-.PHONY: setup init hosts-config generate-certs up upd down restart prod prod-up prod-down prod-build dev build clean help add-frontend-dep add-frontend-dev add-backend-dep add-backend-dev db-migrate db-seed db-studio db-generate shadcn-add
+.PHONY: setup init hosts-config generate-certs up upd down restart prod prod-up prod-down prod-build dev build clean help add-frontend-dep add-frontend-dev add-backend-dep add-backend-dev db-migrate db-seed db-studio db-generate shadcn-add cap-dev cap-prod cap-apk cap-apk-release cap-android cap-ios
 .DEFAULT:

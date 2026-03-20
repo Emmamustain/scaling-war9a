@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -22,6 +22,8 @@ import { AppointmentsModule } from './appointments/appointments.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { DatabaseSchemaGuardService } from './common/startup/database-schema-guard.service';
 import { validateEnvironment } from './config/env.validation';
+import { MetricsModule } from './metrics/metrics.module';
+import { MetricsMiddleware } from './metrics/metrics.middleware';
 
 @Module({
   imports: [
@@ -44,8 +46,13 @@ import { validateEnvironment } from './config/env.validation';
     QrCodeModule,
     AppointmentsModule,
     FeedbackModule,
+    MetricsModule,
   ],
   controllers: [AppController],
   providers: [AppService, DatabaseSchemaGuardService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(MetricsMiddleware).forRoutes('*');
+  }
+}
