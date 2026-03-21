@@ -16,7 +16,7 @@ export default function QrModal({ slug, businessName }: QrModalProps) {
 
   return (
     <>
-      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+      <Button data-testid="qr-button" variant="outline" size="sm" onClick={() => setOpen(true)}>
         <QrCode className="size-4" />
       </Button>
 
@@ -26,11 +26,13 @@ export default function QrModal({ slug, businessName }: QrModalProps) {
           onClick={() => setOpen(false)}
         >
           <div
+            data-testid="qr-modal"
             className="relative w-full max-w-sm rounded-2xl bg-white dark:bg-neutral-900 p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close */}
             <button
+              data-testid="qr-modal-close"
               onClick={() => setOpen(false)}
               className="absolute right-4 top-4 rounded-full p-1 text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
             >
@@ -45,6 +47,7 @@ export default function QrModal({ slug, businessName }: QrModalProps) {
             {/* QR image from backend */}
             <div className="flex justify-center rounded-xl border border-border bg-white p-4">
               <img
+                data-testid="qr-code"
                 src={qrUrl}
                 alt={`QR code for ${businessName}`}
                 className="h-64 w-64 object-contain"

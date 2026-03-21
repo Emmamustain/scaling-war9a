@@ -72,9 +72,9 @@ export const useQueueStore = create<QueueState>((set, get) => ({
 
   disconnect: () => {
     const socket = getSocket();
-    socket.off("queue:position-update");
-    socket.off("queue:called");
-    socket.off("queue:served");
+    socket.off("queue:position-update"); // entry-room personal tracker
+    socket.off("queue:called");          // entry-room personal notification
+    socket.off("queue:served");          // entry-room personal notification
     disconnectSocket();
     set({ isConnected: false });
   },

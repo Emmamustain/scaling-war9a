@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -n \"from.*socket\\\\|getSocket\" /home/vaultboy/DEV/WEB2/scaling-war9a/apps/frontend/src/app/\\\\\\(dashboards\\\\\\)/worker/[slug]/page.tsx)"
+    ]
+  }
+}

@@ -182,12 +182,12 @@ export function MainNav() {
                   </Link>
                 </Button>
               )}
-              <Button variant="ghost" size="icon" asChild>
+              <Button data-testid="nav-notifications" variant="ghost" size="icon" asChild>
                 <Link href="/notifications">
                   <Bell className="size-4" />
                 </Link>
               </Button>
-              <Button variant="ghost" size="icon" asChild>
+              <Button data-testid="nav-profile" variant="ghost" size="icon" asChild>
                 <Link href="/profile">
                   <User className="size-4" />
                 </Link>
@@ -211,6 +211,7 @@ export function MainNav() {
           )}
 
           <Button
+            data-testid="nav-theme-toggle"
             variant="ghost"
             size="icon"
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}

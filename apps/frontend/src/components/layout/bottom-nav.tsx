@@ -30,7 +30,7 @@ export function BottomNav() {
   ];
 
   return (
-    <nav className="safe-area-bottom fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur-md md:hidden">
+    <nav data-testid="bottom-nav" className="safe-area-bottom fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur-md md:hidden">
       <div className="flex items-center justify-around px-2 py-2">
         {navItems.map((item) => {
           if (item.authRequired && !isAuthenticated) return null;

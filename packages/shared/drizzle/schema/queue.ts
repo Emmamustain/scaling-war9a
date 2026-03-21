@@ -8,7 +8,6 @@ import {
   decimal,
   index,
   pgEnum,
-  unique,
 } from "drizzle-orm/pg-core";
 import { users } from "./users";
 import { businesses } from "./businesses";
@@ -98,7 +97,6 @@ export const queueEntries = pgTable(
     priority: priorityLevel("priority").default("normal").notNull(),
     status: queuedStatus("status").default("waiting").notNull(),
     present: boolean("present").default(false).notNull(),
-    position: integer("position"),
     estimatedWaitMinutes: integer("estimated_wait_minutes"),
     calledAt: timestamp("called_at"),
     servedAt: timestamp("served_at"),
@@ -111,7 +109,6 @@ export const queueEntries = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [
-    unique().on(table.userId, table.serviceId),
     index("queue_entries_service_status_idx").on(table.serviceId, table.status),
     index("queue_entries_user_idx").on(table.userId),
     index("queue_entries_status_idx").on(table.status),

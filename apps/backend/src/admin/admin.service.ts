@@ -41,7 +41,8 @@ export class AdminService {
         .where(conditions.length > 0 ? and(...conditions) : undefined),
     ]);
 
-    return { data: users, total: total[0]?.count ?? 0, page, limit };
+    const totalCount = total[0]?.count ?? 0;
+    return { data: users, total: totalCount, page, limit, hasNextPage: offset + users.length < totalCount };
   }
 
   async banUser(userId: string, banReason: string) {
@@ -114,7 +115,8 @@ export class AdminService {
         .where(conditions.length > 0 ? and(...conditions) : undefined),
     ]);
 
-    return { data: businesses, total: total[0]?.count ?? 0, page, limit };
+    const totalCount = total[0]?.count ?? 0;
+    return { data: businesses, total: totalCount, page, limit, hasNextPage: offset + businesses.length < totalCount };
   }
 
   async approveBusiness(businessId: string) {

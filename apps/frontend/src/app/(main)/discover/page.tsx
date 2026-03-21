@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useRef, useEffect } from "react";
+import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
 import { fetchApi } from "@/lib/fetch";
 import { Input } from "@/components/ui/input";
-import { MapPin, Search, Bell, History } from "lucide-react";
+import { MapPin, Search, Bell, History, Loader2 } from "lucide-react";
 import { useAuthStore } from "@/stores/auth.store";
 import { cn } from "@/lib/utils";
 import BusinessCard from "@/components/discover/business-card";
@@ -33,7 +33,38 @@ type BusinessListResponse = {
   hasNextPage: boolean;
 };
 
+const LIMIT = 20;
 const CITIES = ["Annaba", "Algiers", "Oran", "Constantine", "Setif", "Batna"];
+
+function useInfiniteBusinesses(params: Record<string, string | number | boolean | undefined>, enabled: boolean) {
+  return useInfiniteQuery({
+    queryKey: ["businesses-infinite", params],
+    queryFn: ({ pageParam }) =>
+      fetchApi<BusinessListResponse>("/businesses", {
+        params: { ...params, page: pageParam, limit: LIMIT },
+      }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.hasNextPage ? allPages.length + 1 : undefined,
+    enabled,
+  });
+}
+
+function useSentinel(onIntersect: () => void, enabled: boolean) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!enabled) return;
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) onIntersect(); },
+      { rootMargin: "200px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [enabled, onIntersect]);
+  return ref;
+}
 
 export default function DiscoverPage() {
   const { isAuthenticated, user } = useAuthStore();
@@ -42,44 +73,51 @@ export default function DiscoverPage() {
   const [city, setCity] = useState("Annaba");
   const displayName = user?.displayName ?? user?.username;
 
+  const isFiltered = !!search || !!selectedCategory;
+
+  // Featured — static, horizontal carousel
   const { data: featuredData } = useQuery({
     queryKey: ["businesses-featured"],
     queryFn: () =>
       fetchApi<BusinessListResponse>("/businesses", {
         params: { featured: true, limit: 10 },
       }),
-    enabled: !search && !selectedCategory,
+    enabled: !isFiltered,
   });
 
-  const { data: allData } = useQuery({
-    queryKey: ["businesses-all"],
-    queryFn: () =>
-      fetchApi<BusinessListResponse>("/businesses", {
-        params: { limit: 20 },
-      }),
-    enabled: !search && !selectedCategory,
-  });
+  // Nearby — infinite scroll (default view)
+  const {
+    data: nearbyData,
+    fetchNextPage: fetchNextNearby,
+    hasNextPage: hasMoreNearby,
+    isFetchingNextPage: loadingMoreNearby,
+  } = useInfiniteBusinesses({}, !isFiltered);
 
-  const { data: filteredData } = useQuery({
-    queryKey: ["businesses-category", selectedCategory],
-    queryFn: () =>
-      fetchApi<BusinessListResponse>("/businesses", {
-        params: { category: selectedCategory ?? undefined, limit: 20 },
-      }),
-    enabled: !!selectedCategory && !search,
-  });
+  const nearbyItems = nearbyData?.pages.flatMap((p) => p.data) ?? [];
 
-  const { data: searchData, isLoading: isSearching } = useQuery({
-    queryKey: ["businesses-search", search],
-    queryFn: () =>
-      fetchApi<BusinessListResponse>("/businesses", {
-        params: { search, limit: 20 },
-      }),
-    enabled: search.length > 0,
-  });
+  // Filtered / search — infinite scroll
+  const {
+    data: filteredData,
+    fetchNextPage: fetchNextFiltered,
+    hasNextPage: hasMoreFiltered,
+    isFetchingNextPage: loadingMoreFiltered,
+    isLoading: isLoadingFiltered,
+  } = useInfiniteBusinesses(
+    search ? { search } : { category: selectedCategory ?? undefined },
+    isFiltered,
+  );
 
-  const isFiltered = !!search || !!selectedCategory;
-  const filteredResults = search ? searchData?.data : filteredData?.data;
+  const filteredItems = filteredData?.pages.flatMap((p) => p.data) ?? [];
+
+  // Sentinel refs
+  const nearbySentinelRef = useSentinel(
+    () => { if (hasMoreNearby && !loadingMoreNearby) void fetchNextNearby(); },
+    !isFiltered && hasMoreNearby,
+  );
+  const filteredSentinelRef = useSentinel(
+    () => { if (hasMoreFiltered && !loadingMoreFiltered) void fetchNextFiltered(); },
+    isFiltered && hasMoreFiltered,
+  );
 
   return (
     <main className="flex min-h-screen flex-col">
@@ -90,7 +128,11 @@ export default function DiscoverPage() {
           <div className="flex items-center gap-3.5">
             {isAuthenticated && user ? (
               <div className="size-16 shrink-0 overflow-hidden rounded-full border-2 border-primary/20 bg-muted">
-                <MinidenticonImg username={user.username} />
+                {user.avatarUrl ? (
+                  <img src={user.avatarUrl} alt={displayName ?? ""} className="h-full w-full object-cover" />
+                ) : (
+                  <MinidenticonImg username={user.username} />
+                )}
               </div>
             ) : (
               <div className="size-16 shrink-0 rounded-full bg-muted" />
@@ -206,22 +248,22 @@ export default function DiscoverPage() {
             <h2 className="text-base font-semibold md:text-xl">
               {search ? `Results for "${search}"` : selectedCategory}
             </h2>
-            {filteredResults && filteredResults.length > 0 && (
+            {filteredItems.length > 0 && (
               <span className="text-xs text-muted-foreground">
-                {filteredResults.length} places
+                {filteredItems.length} places
               </span>
             )}
           </div>
 
-          {isSearching ? (
+          {isLoadingFiltered ? (
             <div className="flex items-center justify-center py-10">
               <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
             </div>
-          ) : filteredResults && filteredResults.length > 0 ? (
+          ) : filteredItems.length > 0 ? (
             <>
               {/* Mobile: list */}
               <div className="flex flex-col gap-2 md:hidden">
-                {filteredResults.map((b) => (
+                {filteredItems.map((b) => (
                   <BusinessCard
                     key={b.id}
                     name={b.name}
@@ -235,7 +277,7 @@ export default function DiscoverPage() {
               </div>
               {/* Desktop: grid */}
               <div className="hidden gap-3 md:grid md:grid-cols-2 lg:grid-cols-3">
-                {filteredResults.map((b) => (
+                {filteredItems.map((b) => (
                   <BusinessCard
                     key={b.id}
                     name={b.name}
@@ -245,6 +287,13 @@ export default function DiscoverPage() {
                     logoUrl={b.logoUrl}
                   />
                 ))}
+              </div>
+
+              {/* Sentinel + loading indicator */}
+              <div ref={filteredSentinelRef} className="py-4 flex justify-center">
+                {loadingMoreFiltered && (
+                  <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                )}
               </div>
             </>
           ) : (
@@ -306,19 +355,19 @@ export default function DiscoverPage() {
             </div>
           )}
 
-          {/* Nearby — full-width list */}
-          {allData?.data && allData.data.length > 0 && (
+          {/* Nearby — infinite scroll */}
+          {nearbyItems.length > 0 && (
             <div className="mt-6 px-4 md:px-6 lg:px-24">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-base font-semibold md:text-xl">Nearby</h2>
                 <span className="text-xs text-muted-foreground">
-                  {allData.data.length} places
+                  {nearbyItems.length} places
                 </span>
               </div>
 
               {/* Mobile: list */}
               <div className="flex flex-col gap-2 md:hidden">
-                {allData.data.map((b) => (
+                {nearbyItems.map((b) => (
                   <BusinessCard
                     key={b.id}
                     name={b.name}
@@ -333,7 +382,7 @@ export default function DiscoverPage() {
 
               {/* Desktop: grid */}
               <div className="hidden gap-3 md:grid md:grid-cols-2 lg:grid-cols-3">
-                {allData.data.map((b) => (
+                {nearbyItems.map((b) => (
                   <BusinessCard
                     key={b.id}
                     name={b.name}
@@ -343,6 +392,13 @@ export default function DiscoverPage() {
                     logoUrl={b.logoUrl}
                   />
                 ))}
+              </div>
+
+              {/* Sentinel + loading indicator */}
+              <div ref={nearbySentinelRef} className="py-4 flex justify-center">
+                {loadingMoreNearby && (
+                  <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                )}
               </div>
             </div>
           )}

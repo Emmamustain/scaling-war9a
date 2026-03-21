@@ -17,7 +17,8 @@
     "drizzle:generate": "drizzle-kit generate",
     "drizzle:migrate": "drizzle-kit migrate",
     "drizzle:studio": "drizzle-kit studio",
-    "drizzle:seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' seed.ts"
+    "drizzle:seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' seed.ts",
+    "drizzle:simulate": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' simulate.ts"
   },
   "keywords": [],
   "author": "",

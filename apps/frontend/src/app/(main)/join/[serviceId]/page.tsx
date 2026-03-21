@@ -1,8 +1,10 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchApi, ApiError } from "@/lib/fetch";
+import { useQueueStore } from "@/stores/queue.store";
+import { getSocket } from "@/lib/socket";
 import { useAuthStore } from "@/stores/auth.store";
 import ForfeitQueueDialog from "@/components/queue/forfeit-queue-dialog";
 import { useRouter } from "next/navigation";
@@ -49,6 +51,7 @@ export default function JoinQueuePage({
   const { isAuthenticated } = useAuthStore();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { connect, subscribeToService } = useQueueStore();
   const [groupSize, setGroupSize] = useState(1);
   const [forfeitEntry, setForfeitEntry] = useState<{
     id: string;
@@ -64,8 +67,19 @@ export default function JoinQueuePage({
   const { data: status, isLoading } = useQuery({
     queryKey: ["join-service-status", serviceId],
     queryFn: () => fetchApi<ServiceStatus>(`/queue/service/${serviceId}/status`),
-    refetchInterval: 15000,
   });
+
+  useEffect(() => {
+    connect();
+    subscribeToService(serviceId);
+    const socket = getSocket();
+    const invalidate = () =>
+      void queryClient.invalidateQueries({ queryKey: ["join-service-status", serviceId] });
+    socket.on("queue:status-change", invalidate);
+    return () => {
+      socket.off("queue:status-change", invalidate);
+    };
+  }, [serviceId, connect, subscribeToService, queryClient]);
 
   const joinMutation = useMutation({
     mutationFn: () =>
@@ -188,14 +202,16 @@ export default function JoinQueuePage({
           <label className="mb-2 block text-sm font-medium">Group Size</label>
           <div className="flex items-center gap-3">
             <button
+              data-testid="decrement-group"
               className="rounded-lg border border-border p-2 hover:bg-secondary disabled:opacity-50"
               onClick={() => setGroupSize((n) => Math.max(1, n - 1))}
               disabled={groupSize <= 1}
             >
               <ChevronDown className="size-4" />
             </button>
-            <span className="min-w-8 text-center text-xl font-bold">{groupSize}</span>
+            <span data-testid="group-size" className="min-w-8 text-center text-xl font-bold">{groupSize}</span>
             <button
+              data-testid="increment-group"
               className="rounded-lg border border-border p-2 hover:bg-secondary disabled:opacity-50"
               onClick={() => setGroupSize((n) => Math.min(10, n + 1))}
               disabled={groupSize >= 10}

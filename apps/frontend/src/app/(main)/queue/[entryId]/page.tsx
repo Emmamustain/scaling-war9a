@@ -536,7 +536,7 @@ export default function QueueTrackerPage({
                   <div className="space-y-1 px-3 py-2">
                     {neighborhood.entries.map((neighbor) => (
                       <div
-                        key={neighbor.position}
+                        key={neighbor.id ?? neighbor.position}
                         className={cn(
                           "flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all",
                           neighbor.isCurrentUser

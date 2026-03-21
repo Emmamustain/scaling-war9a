@@ -6,7 +6,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { DrizzleDB, schema } from '@shared/drizzle';
-import { and, eq, ne, inArray, count, asc, desc, gt, gte, lte, sql } from '@shared/drizzle/operators';
+import { and, eq, ne, inArray, count, asc, desc, sql } from '@shared/drizzle/operators';
 import { DRIZZLE } from '../drizzle/drizzle.module';
 import { QueueGateway } from './queue.gateway';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -50,7 +50,6 @@ export class QueueService {
       businessSlug: e.service?.business?.slug ?? '',
       businessLogoUrl: e.service?.business?.logoUrl ?? null,
       groupSize: e.groupSize,
-      position: e.position,
     }));
   }
 
@@ -72,17 +71,37 @@ export class QueueService {
         },
       },
     });
-    return entries.map((e) => ({
-      id: e.id,
-      serviceId: e.serviceId,
-      serviceName: e.service?.name ?? '',
-      businessId: e.service?.business?.id,
-      businessName: e.service?.business?.name ?? '',
-      businessSlug: e.service?.business?.slug ?? '',
-      position: e.position ?? 0,
-      status: e.status,
-      estimatedWaitMinutes: e.estimatedWaitMinutes ?? 0,
-    }));
+
+    // Compute position dynamically: count waiting entries ahead of this one
+    const results = await Promise.all(
+      entries.map(async (e) => {
+        const [{ count: ahead }] = await this.db
+          .select({ count: count() })
+          .from(schema.queueEntries)
+          .where(
+            and(
+              eq(schema.queueEntries.serviceId, e.serviceId),
+              eq(schema.queueEntries.status, 'waiting'),
+              sql`(
+                "priority" > ${e.priority}
+                OR ("priority" = ${e.priority} AND "entry_time" < ${e.entryTime})
+              )`,
+            ),
+          );
+        return {
+          id: e.id,
+          serviceId: e.serviceId,
+          serviceName: e.service?.name ?? '',
+          businessId: e.service?.business?.id,
+          businessName: e.service?.business?.name ?? '',
+          businessSlug: e.service?.business?.slug ?? '',
+          position: Number(ahead) + 1,
+          status: e.status,
+          estimatedWaitMinutes: e.estimatedWaitMinutes ?? 0,
+        };
+      }),
+    );
+    return results;
   }
 
   async getServiceQueueStatus(serviceId: string) {
@@ -175,7 +194,6 @@ export class QueueService {
             serviceName: otherActive.service?.name ?? '',
             businessName: otherActive.service?.business?.name ?? '',
             businessSlug: otherActive.service?.business?.slug ?? '',
-            position: otherActive.position ?? 0,
           },
         });
       }
@@ -184,69 +202,12 @@ export class QueueService {
         where: and(
           eq(schema.queueEntries.serviceId, serviceId),
           eq(schema.queueEntries.userId, options.userId),
+          inArray(schema.queueEntries.status, ['waiting', 'called']),
         ),
       });
 
       if (existing) {
-        const activeStatuses = ['waiting', 'called'];
-        if (activeStatuses.includes(existing.status)) {
-          throw new ConflictException('Already in queue for this service');
-        }
-
-        // Terminal entry exists — reactivate it so the user can rejoin
-        const currentCount = await this.db
-          .select({ count: count() })
-          .from(schema.queueEntries)
-          .where(
-            and(
-              eq(schema.queueEntries.serviceId, serviceId),
-              eq(schema.queueEntries.status, 'waiting'),
-            ),
-          );
-        const waiting = currentCount[0]?.count ?? 0;
-        const position = waiting + 1;
-        const avgTime = Number(
-          (
-            await this.db.query.queueServices.findFirst({
-              where: eq(schema.queueServices.id, serviceId),
-              columns: { averageTime: true },
-            })
-          )?.averageTime ?? 10,
-        );
-        const estimatedWaitMinutes = (position - 1) * avgTime;
-
-        const [reactivated] = await this.db
-          .update(schema.queueEntries)
-          .set({
-            status: 'waiting',
-            position,
-            estimatedWaitMinutes,
-            calledAt: null,
-            servedAt: null,
-            present: false,
-            updatedAt: new Date(),
-          })
-          .where(eq(schema.queueEntries.id, existing.id))
-          .returning();
-
-        await this.db.insert(schema.queueEvents).values({
-          entryId: existing.id,
-          eventType: 'requeued',
-          actorId: options.userId ?? null,
-          metadata: JSON.stringify({ position, estimatedWaitMinutes }),
-        });
-
-        const reactivatedDeadlineAt = Date.now() + estimatedWaitMinutes * 60 * 1000;
-        this.queueGateway.broadcastPositionUpdate({
-          entryId: existing.id,
-          serviceId,
-          position,
-          estimatedWaitMinutes,
-          deadlineAt: reactivatedDeadlineAt,
-          status: 'waiting',
-        });
-
-        return { ...reactivated, position, estimatedWaitMinutes, deadlineAt: reactivatedDeadlineAt };
+        throw new ConflictException('Already in queue for this service');
       }
     }
 
@@ -258,24 +219,37 @@ export class QueueService {
       throw new NotFoundException('Service not found or inactive');
     }
 
-    const currentCount = await this.db
-      .select({ count: count() })
+    // Priority-aware count: urgent → priority → normal ordering (desc)
+    const joinPriority = options.priority ?? 'normal';
+    const priorityCounts = await this.db
+      .select({ priority: schema.queueEntries.priority, count: count() })
       .from(schema.queueEntries)
       .where(
         and(
           eq(schema.queueEntries.serviceId, serviceId),
           eq(schema.queueEntries.status, 'waiting'),
         ),
-      );
+      )
+      .groupBy(schema.queueEntries.priority);
 
-    const waiting = currentCount[0]?.count ?? 0;
-    if (waiting >= (service.maxCapacity ?? 200)) {
+    const byPriority: Record<string, number> = {};
+    for (const row of priorityCounts) byPriority[row.priority] = Number(row.count);
+    const totalWaiting = (byPriority.urgent ?? 0) + (byPriority.priority ?? 0) + (byPriority.normal ?? 0);
+
+    if (totalWaiting >= (service.maxCapacity ?? 200)) {
       throw new BadRequestException('Queue is at maximum capacity');
     }
 
-    const position = waiting + 1;
+    // Insert after all entries with equal or higher priority
+    const position =
+      joinPriority === 'urgent'
+        ? (byPriority.urgent ?? 0) + 1
+        : joinPriority === 'priority'
+          ? (byPriority.urgent ?? 0) + (byPriority.priority ?? 0) + 1
+          : totalWaiting + 1;
+
     const avgTime = Number(service.averageTime ?? 10);
-    const estimatedWaitMinutes = (position - 1) * avgTime;
+    const estimatedWaitMinutes = Math.round((position - 1) * avgTime);
 
     const anonymousToken = !options.userId
       ? randomBytes(16).toString('hex')
@@ -291,7 +265,6 @@ export class QueueService {
         groupSize: options.groupSize ?? 1,
         priority: options.priority ?? 'normal',
         status: 'waiting',
-        position,
         estimatedWaitMinutes,
         notes: options.notes,
       })
@@ -314,6 +287,7 @@ export class QueueService {
       status: 'waiting',
     });
 
+    void this.sendQueueSnapshot(serviceId);
     return { ...entry, position, estimatedWaitMinutes, deadlineAt: joinedDeadlineAt };
   }
 
@@ -338,7 +312,7 @@ export class QueueService {
     });
 
     await this.recalculatePositions(entry.serviceId);
-
+    void this.sendQueueSnapshot(entry.serviceId);
     return { success: true };
   }
 
@@ -398,7 +372,7 @@ export class QueueService {
         eq(schema.queueEntries.status, 'waiting'),
       ),
       orderBy: [
-        asc(schema.queueEntries.priority),
+        desc(schema.queueEntries.priority),
         asc(schema.queueEntries.entryTime),
       ],
       with: {
@@ -444,7 +418,7 @@ export class QueueService {
     }
 
     await this.recalculatePositions(serviceId);
-
+    void this.sendQueueSnapshot(serviceId);
     return nextEntry;
   }
 
@@ -482,6 +456,8 @@ export class QueueService {
       .where(eq(schema.queueServices.id, entry.serviceId));
 
     this.queueGateway.broadcastEntryServed({ entryId, serviceId: entry.serviceId });
+    await this.recalculatePositions(entry.serviceId);
+    void this.sendQueueSnapshot(entry.serviceId);
 
     if (entry.userId) {
       void this.notificationsService.createNotification({
@@ -533,44 +509,72 @@ export class QueueService {
     return { ...entry, deadlineAt };
   }
 
-  async getServiceQueue(serviceId: string) {
-    return this.db.query.queueEntries.findMany({
-      where: and(
-        eq(schema.queueEntries.serviceId, serviceId),
-        inArray(schema.queueEntries.status, ['waiting', 'called']),
-      ),
-      orderBy: [
-        asc(schema.queueEntries.priority),
-        asc(schema.queueEntries.entryTime),
-      ],
-      with: {
-        user: {
-          columns: { id: true, displayName: true, avatarUrl: true, username: true },
+  async getServiceQueue(serviceId: string, limit = 50) {
+    const activeWhere = and(
+      eq(schema.queueEntries.serviceId, serviceId),
+      inArray(schema.queueEntries.status, ['waiting', 'called']),
+    );
+
+    const [rows, totalResult] = await Promise.all([
+      this.db.query.queueEntries.findMany({
+        where: activeWhere,
+        orderBy: [
+          desc(schema.queueEntries.priority),
+          asc(schema.queueEntries.entryTime),
+        ],
+        with: {
+          user: {
+            columns: { id: true, displayName: true, avatarUrl: true, username: true },
+          },
         },
-      },
+        limit,
+      }),
+      this.db
+        .select({ count: count() })
+        .from(schema.queueEntries)
+        .where(activeWhere),
+    ]);
+
+    const total = Number(totalResult[0]?.count ?? 0);
+    // Assign position from row order — never trust the stored DB column
+    let waitingIndex = 0;
+    const entries = rows.map((e) => {
+      const position = e.status === 'waiting' ? ++waitingIndex : 0;
+      return {
+        ...e,
+        position,
+        deadlineAt:
+          (e.updatedAt ? new Date(e.updatedAt).getTime() : Date.now()) +
+          (Number(e.estimatedWaitMinutes) || 0) * 60 * 1000,
+      };
     });
+
+    return { entries, total, hasMore: total > limit };
+  }
+
+  private async sendQueueSnapshot(serviceId: string) {
+    const data = await this.getServiceQueue(serviceId);
+    this.queueGateway.broadcastQueueSnapshot({ serviceId, ...data });
   }
 
   async getEntryNeighborhood(entryId: string) {
     const entry = await this.db.query.queueEntries.findFirst({
       where: eq(schema.queueEntries.id, entryId),
-      columns: { position: true, serviceId: true },
+      columns: { id: true, serviceId: true, status: true },
     });
     if (!entry) throw new NotFoundException('Queue entry not found');
 
-    const position = entry.position ?? 0;
     const range = 3;
 
-    const [neighbors, totalResult] = await Promise.all([
+    // Fetch all waiting entries in queue order to compute positions dynamically
+    const [allWaiting, totalResult] = await Promise.all([
       this.db.query.queueEntries.findMany({
         where: and(
           eq(schema.queueEntries.serviceId, entry.serviceId),
           eq(schema.queueEntries.status, 'waiting'),
-          gte(schema.queueEntries.position, position - range),
-          lte(schema.queueEntries.position, position + range),
         ),
-        columns: { id: true, position: true, groupSize: true },
-        orderBy: asc(schema.queueEntries.position),
+        columns: { id: true, groupSize: true },
+        orderBy: [desc(schema.queueEntries.priority), asc(schema.queueEntries.entryTime)],
       }),
       this.db
         .select({ count: count() })
@@ -583,11 +587,19 @@ export class QueueService {
         ),
     ]);
 
+    const userIndex = allWaiting.findIndex((e) => e.id === entryId);
+    const userPosition = userIndex >= 0 ? userIndex + 1 : 0;
+
+    const sliceStart = Math.max(0, userIndex - range);
+    const sliceEnd = Math.min(allWaiting.length, userIndex + range + 1);
+    const neighbors = allWaiting.slice(sliceStart, sliceEnd);
+
     return {
-      userPosition: position,
+      userPosition,
       totalWaiting: totalResult[0]?.count ?? 0,
-      entries: neighbors.map((n) => ({
-        position: n.position ?? 0,
+      entries: neighbors.map((n, i) => ({
+        id: n.id,
+        position: sliceStart + i + 1,
         groupSize: n.groupSize ?? 1,
         isCurrentUser: n.id === entryId,
       })),
@@ -620,7 +632,7 @@ export class QueueService {
 
     const position = waiting + 1;
     const avgTime = Number(service.averageTime ?? 10);
-    const estimatedWaitMinutes = (position - 1) * avgTime;
+    const estimatedWaitMinutes = Math.round((position - 1) * avgTime);
 
     const noteParts: string[] = [];
     if (data.name) noteParts.push(`Walk-in: ${data.name}`);
@@ -637,7 +649,6 @@ export class QueueService {
         groupSize: data.groupSize ?? 1,
         priority: data.priority ?? 'normal',
         status: 'waiting',
-        position,
         estimatedWaitMinutes,
         notes,
       })
@@ -659,6 +670,7 @@ export class QueueService {
       status: 'waiting',
     });
 
+    void this.sendQueueSnapshot(serviceId);
     return entry;
   }
 
@@ -680,6 +692,7 @@ export class QueueService {
     });
 
     await this.recalculatePositions(entry.serviceId);
+    void this.sendQueueSnapshot(entry.serviceId);
     return { success: true };
   }
 
@@ -689,7 +702,7 @@ export class QueueService {
         eq(schema.queueEntries.serviceId, serviceId),
         eq(schema.queueEntries.status, 'waiting'),
       ),
-      orderBy: [asc(schema.queueEntries.priority), asc(schema.queueEntries.entryTime)],
+      orderBy: [desc(schema.queueEntries.priority), asc(schema.queueEntries.entryTime)],
       with: {
         service: { columns: { averageTime: true } },
       },
@@ -699,19 +712,21 @@ export class QueueService {
       const entry = waiting[i];
       const position = i + 1;
       const avgTime = Number(entry.service?.averageTime ?? 10);
-      const estimatedWaitMinutes = i * avgTime;
+      const estimatedWaitMinutes = Math.round(i * avgTime);
+      const deadlineAt = Date.now() + estimatedWaitMinutes * 60 * 1000;
 
       await this.db
         .update(schema.queueEntries)
-        .set({ position, estimatedWaitMinutes, updatedAt: new Date() })
+        .set({ estimatedWaitMinutes, updatedAt: new Date() })
         .where(eq(schema.queueEntries.id, entry.id));
 
+      // Notify personal tracker via entry room
       this.queueGateway.broadcastPositionUpdate({
         entryId: entry.id,
         serviceId,
         position,
         estimatedWaitMinutes,
-        deadlineAt: Date.now() + estimatedWaitMinutes * 60 * 1000,
+        deadlineAt,
         status: 'waiting',
       });
     }

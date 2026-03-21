@@ -4,6 +4,7 @@ import { use, useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchApi } from "@/lib/fetch";
 import { useQueueStore } from "@/stores/queue.store";
+import { getSocket } from "@/lib/socket";
 import { useAuthStore } from "@/stores/auth.store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +48,8 @@ type QueueEntry = {
     username: string;
   } | null;
 };
+
+type QueueData = { entries: QueueEntry[]; total: number; hasMore: boolean };
 
 type BusinessGuichet = {
   id: string;
@@ -266,14 +269,35 @@ function ManagerGuichetCard({
   const queryClient = useQueryClient();
   const [walkInOpen, setWalkInOpen] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
+  const { connect, subscribeToService } = useQueueStore();
 
   const { data: queue, refetch: refetchQueue } = useQuery({
     queryKey: ["manager-queue", guichet.service?.id],
     queryFn: () =>
-      fetchApi<QueueEntry[]>(`/queue/service/${guichet.service!.id}/entries`),
+      fetchApi<QueueData>(`/queue/service/${guichet.service!.id}/entries`),
     enabled: !!guichet.service?.id,
-    refetchInterval: 10000,
   });
+
+  useEffect(() => {
+    if (!guichet.service?.id) return;
+    connect();
+    subscribeToService(guichet.service.id);
+    const socket = getSocket();
+    const serviceId = guichet.service.id;
+    const handleSnapshot = (data: { serviceId: string } & QueueData) => {
+      if (data.serviceId === serviceId) {
+        queryClient.setQueryData(["manager-queue", serviceId], {
+          entries: data.entries,
+          total: data.total,
+          hasMore: data.hasMore,
+        });
+      }
+    };
+    socket.on("queue:snapshot", handleSnapshot);
+    return () => {
+      socket.off("queue:snapshot", handleSnapshot);
+    };
+  }, [guichet.service?.id, connect, subscribeToService, queryClient]);
 
   const callNextMutation = useMutation({
     mutationFn: () =>
@@ -319,8 +343,10 @@ function ManagerGuichetCard({
       void queryClient.invalidateQueries({ queryKey: ["worker-guichets"] }),
   });
 
-  const calledEntry = queue?.find((e: QueueEntry) => e.status === "called");
-  const waitingQueue = queue?.filter((e: QueueEntry) => e.status === "waiting") ?? [];
+  const calledEntry = queue?.entries.find((e) => e.status === "called");
+  const waitingQueue = queue?.entries.filter((e) => e.status === "waiting") ?? [];
+  const queueTotal = queue?.total ?? 0;
+  const queueHasMore = queue?.hasMore ?? false;
 
   const statusColor =
     guichet.status === "open"
@@ -443,7 +469,7 @@ function ManagerGuichetCard({
 
             {/* Waiting count — big section */}
             <div className="rounded-xl border bg-secondary/40 py-5 text-center">
-              <div className="text-5xl font-black tabular-nums text-primary">
+              <div data-testid="waiting-count" className="text-5xl font-black tabular-nums text-primary">
                 {waitingQueue.length}
               </div>
               <div className="mt-1 text-sm font-medium text-muted-foreground">
@@ -496,6 +522,7 @@ function ManagerGuichetCard({
                 {waitingQueue.slice(0, 3).map((entry: QueueEntry, i: number) => (
                   <div
                     key={entry.id}
+                    data-testid="queue-entry-row"
                     className="flex items-center gap-2 rounded-xl border bg-background px-3 py-2 text-sm"
                   >
                     <span className="w-5 shrink-0 text-center font-bold text-muted-foreground">
@@ -514,11 +541,15 @@ function ManagerGuichetCard({
                     )}
                   </div>
                 ))}
-                {waitingQueue.length > 3 && (
+                {queueHasMore ? (
+                  <p className="text-center text-xs text-muted-foreground">
+                    +{queueTotal - waitingQueue.slice(0, 3).length} more not shown
+                  </p>
+                ) : waitingQueue.length > 3 ? (
                   <p className="text-center text-xs text-muted-foreground">
                     +{waitingQueue.length - 3} more
                   </p>
-                )}
+                ) : null}
               </div>
             )}
           </>
@@ -641,11 +672,10 @@ function WorkerQueueView({
   const { data: queue, refetch: refetchQueue } = useQuery({
     queryKey: ["worker-queue", activeGuichet?.service?.id],
     queryFn: () =>
-      fetchApi<QueueEntry[]>(
+      fetchApi<QueueData>(
         `/queue/service/${activeGuichet!.service!.id}/entries`,
       ),
     enabled: !!activeGuichet?.service?.id,
-    refetchInterval: 10000,
   });
 
   const { data: analytics } = useQuery({
@@ -655,11 +685,25 @@ function WorkerQueueView({
   });
 
   useEffect(() => {
-    if (activeGuichet?.service?.id) {
-      connect();
-      subscribeToService(activeGuichet.service.id);
-    }
-  }, [activeGuichet?.service?.id, connect, subscribeToService]);
+    if (!activeGuichet?.service?.id) return;
+    connect();
+    subscribeToService(activeGuichet.service.id);
+    const socket = getSocket();
+    const serviceId = activeGuichet.service.id;
+    const handleSnapshot = (data: { serviceId: string } & QueueData) => {
+      if (data.serviceId === serviceId) {
+        queryClient.setQueryData(["worker-queue", serviceId], {
+          entries: data.entries,
+          total: data.total,
+          hasMore: data.hasMore,
+        });
+      }
+    };
+    socket.on("queue:snapshot", handleSnapshot);
+    return () => {
+      socket.off("queue:snapshot", handleSnapshot);
+    };
+  }, [activeGuichet?.service?.id, connect, subscribeToService, queryClient]);
 
   const callNextMutation = useMutation({
     mutationFn: () =>
@@ -717,8 +761,10 @@ function WorkerQueueView({
       void queryClient.invalidateQueries({ queryKey: ["worker-guichets"] }),
   });
 
-  const calledEntry = queue?.find((e: QueueEntry) => e.status === "called");
-  const waitingQueue = queue?.filter((e: QueueEntry) => e.status === "waiting") ?? [];
+  const calledEntry = queue?.entries.find((e) => e.status === "called");
+  const waitingQueue = queue?.entries.filter((e) => e.status === "waiting") ?? [];
+  const queueTotal = queue?.total ?? 0;
+  const queueHasMore = queue?.hasMore ?? false;
 
   if (guichetsLoading) {
     return (
@@ -794,13 +840,13 @@ function WorkerQueueView({
           </div>
           <div className="ml-auto flex gap-4 text-center">
             <div>
-              <div className="text-lg font-bold text-primary">
-                {waitingQueue.length}
+              <div data-testid="waiting-count" className="text-lg font-bold text-primary">
+                {queueTotal}
               </div>
               <div className="text-[10px] text-muted-foreground">Waiting</div>
             </div>
             <div>
-              <div className="text-lg font-bold">
+              <div data-testid="served-count" className="text-lg font-bold">
                 {analytics?.summary.servedEntries ?? 0}
               </div>
               <div className="text-[10px] text-muted-foreground">Served</div>
@@ -897,7 +943,7 @@ function WorkerQueueView({
         ) : (
           <ChevronRight className="size-6" />
         )}
-        Call Next{waitingQueue.length > 0 ? ` (${waitingQueue.length})` : ""}
+        Call Next{queueTotal > 0 ? ` (${queueTotal})` : ""}
       </Button>
 
       {/* Add walk-in */}
@@ -912,10 +958,11 @@ function WorkerQueueView({
       </Button>
 
       {/* Waiting list */}
-      {waitingQueue.length > 0 && (
+      {(waitingQueue.length > 0 || queueHasMore) && (
         <div className="space-y-2">
           <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            Waiting ({waitingQueue.length})
+            Waiting ({queueTotal})
+            {queueHasMore && <span className="ml-1 font-normal normal-case">— showing first 50</span>}
           </h3>
           {waitingQueue.map((entry: QueueEntry, i: number) => (
             <div
@@ -923,7 +970,7 @@ function WorkerQueueView({
               className="flex items-center gap-3 rounded-2xl border bg-card p-3"
             >
               <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-bold text-muted-foreground">
-                {i + 1}
+                {entry.position ?? i + 1}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium">
@@ -949,6 +996,11 @@ function WorkerQueueView({
               </Button>
             </div>
           ))}
+          {queueHasMore && (
+            <p className="rounded-xl border border-dashed py-3 text-center text-xs text-muted-foreground">
+              +{queueTotal - waitingQueue.length} more people in queue
+            </p>
+          )}
         </div>
       )}
 
@@ -988,6 +1040,7 @@ export default function WorkerQueuePage({
 }) {
   const { slug } = use(params);
   const { user } = useAuthStore();
+  const queryClient = useQueryClient();
 
   const { data: business } = useQuery({
     queryKey: ["worker-business", slug],
@@ -1009,8 +1062,20 @@ export default function WorkerQueuePage({
     queryFn: () =>
       fetchApi<BusinessGuichet[]>(`/businesses/${business!.id}/guichets`),
     enabled: !!business?.id,
-    refetchInterval: 20000,
   });
+
+  const { connect } = useQueueStore();
+
+  useEffect(() => {
+    if (!business?.id) return;
+    connect();
+    const socket = getSocket();
+    void socket.emit("subscribe:business", { businessId: business.id });
+    const invalidate = () =>
+      void queryClient.invalidateQueries({ queryKey: ["worker-guichets", business.id] });
+    socket.on("queue:status-change", invalidate);
+    return () => { socket.off("queue:status-change", invalidate); };
+  }, [business?.id, connect, queryClient]);
 
   const myProfile = workers?.find((w: WorkerInfo) => w.user.id === user?.id);
   const isManager = myProfile?.role === "manager";

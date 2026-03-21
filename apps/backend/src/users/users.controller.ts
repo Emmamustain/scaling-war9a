@@ -32,6 +32,11 @@ class UpdateUsernameDto {
   username!: string;
 }
 
+class UpdateAvatarDto {
+  @IsString()
+  avatarUrl!: string;
+}
+
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
@@ -69,5 +74,14 @@ export class UsersController {
     @Body() body: UpdateUsernameDto,
   ) {
     return this.usersService.updateUsername(user.userId, body.username);
+  }
+
+  @Patch('me/avatar')
+  @UseGuards(JwtAuthGuard)
+  updateAvatar(
+    @AuthUser() user: TReqUser,
+    @Body() body: UpdateAvatarDto,
+  ) {
+    return this.usersService.updateAvatar(user.userId, body.avatarUrl);
   }
 }

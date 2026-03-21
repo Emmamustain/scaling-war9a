@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchApi } from "@/lib/fetch";
 import { useAuthStore } from "@/stores/auth.store";
@@ -32,6 +32,37 @@ export default function ProfilePage() {
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const { getBackendUrl } = await import("@/lib/backend-url");
+      const uploadRes = await fetch(`${getBackendUrl()}/uploads/avatar`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      if (!uploadRes.ok) throw new Error("Upload failed");
+      const { url } = await uploadRes.json() as { url: string };
+      await fetchApi("/users/me/avatar", {
+        method: "PATCH",
+        body: JSON.stringify({ avatarUrl: url }),
+      });
+      await checkAuth();
+      toast.success("Avatar updated!");
+    } catch {
+      toast.error("Failed to upload avatar");
+    } finally {
+      setAvatarUploading(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = "";
+    }
+  };
 
   const { data: myBusinesses } = useQuery({
     queryKey: ["my-businesses"],
@@ -41,8 +72,8 @@ export default function ProfilePage() {
 
   const updateMutation = useMutation({
     mutationFn: () =>
-      fetchApi("/users/me", {
-        method: "PUT",
+      fetchApi("/users/me/profile", {
+        method: "PATCH",
         body: JSON.stringify({ displayName, phone }),
       }),
     onSuccess: () => {
@@ -76,15 +107,30 @@ export default function ProfilePage() {
     <div className="mx-auto max-w-md px-4 py-8 space-y-6">
       <div className="flex flex-col items-center gap-4 pb-4">
         <div className="relative">
-          <div className="flex size-20 items-center justify-center rounded-full bg-primary/20 text-2xl font-bold text-primary">
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleAvatarChange}
+          />
+          <button
+            className="group relative flex size-20 items-center justify-center rounded-full bg-primary/20 text-2xl font-bold text-primary overflow-hidden"
+            onClick={() => avatarInputRef.current?.click()}
+            disabled={avatarUploading}
+          >
             {user?.avatarUrl ? (
               <img src={user.avatarUrl} alt="" className="size-full rounded-full object-cover" />
             ) : (
               getInitials(user?.displayName)
             )}
-          </div>
-          <button className="absolute -bottom-1 -right-1 rounded-full border-2 border-background bg-secondary p-1">
-            <Camera className="size-3" />
+            <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+              {avatarUploading ? (
+                <Loader2 className="size-5 animate-spin text-white" />
+              ) : (
+                <Camera className="size-5 text-white" />
+              )}
+            </div>
           </button>
         </div>
         <div className="text-center">

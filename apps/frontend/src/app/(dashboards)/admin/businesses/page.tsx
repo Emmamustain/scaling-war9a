@@ -6,9 +6,18 @@ import { fetchApi } from "@/lib/fetch";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Search, CheckCircle, Star, Loader2, XCircle } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Search, CheckCircle, Star, Loader2, XCircle, ChevronLeft, ChevronRight, Copy, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, getInitials } from "@/lib/utils";
+import Link from "next/link";
 
 type AdminBusiness = {
   id: string;
@@ -17,6 +26,7 @@ type AdminBusiness = {
   status: string;
   featured: boolean;
   city: string;
+  logoUrl: string | null;
   owner: { displayName: string | null; email: string };
   createdAt: string;
 };
@@ -25,6 +35,12 @@ type PaginatedResponse<T> = {
   data: T[];
   total: number;
   hasNextPage: boolean;
+};
+
+const statusVariant = (status: string) => {
+  if (status === "active") return "success" as const;
+  if (status === "pending") return "warning" as const;
+  return "secondary" as const;
 };
 
 export default function AdminBusinessesPage() {
@@ -42,8 +58,8 @@ export default function AdminBusinessesPage() {
   });
 
   const approveMutation = useMutation({
-    mutationFn: (businessId: string) =>
-      fetchApi(`/admin/businesses/${businessId}/approve`, { method: "POST" }),
+    mutationFn: (id: string) =>
+      fetchApi(`/admin/businesses/${id}/approve`, { method: "POST" }),
     onSuccess: () => {
       toast.success("Business approved");
       void queryClient.invalidateQueries({ queryKey: ["admin-businesses"] });
@@ -51,8 +67,8 @@ export default function AdminBusinessesPage() {
   });
 
   const suspendMutation = useMutation({
-    mutationFn: (businessId: string) =>
-      fetchApi(`/admin/businesses/${businessId}/suspend`, { method: "POST" }),
+    mutationFn: (id: string) =>
+      fetchApi(`/admin/businesses/${id}/suspend`, { method: "POST" }),
     onSuccess: () => {
       toast.success("Business suspended");
       void queryClient.invalidateQueries({ queryKey: ["admin-businesses"] });
@@ -62,26 +78,30 @@ export default function AdminBusinessesPage() {
   const featureMutation = useMutation({
     mutationFn: ({ id, featured }: { id: string; featured: boolean }) =>
       fetchApi(`/admin/businesses/${id}/feature`, {
-        method: "POST",
+        method: "PUT",
         body: JSON.stringify({ featured }),
       }),
-    onSuccess: (_, variables) => {
-      toast.success(variables.featured ? "Business featured" : "Business unfeatured");
+    onSuccess: (_, { featured }) => {
+      toast.success(featured ? "Business featured" : "Business unfeatured");
       void queryClient.invalidateQueries({ queryKey: ["admin-businesses"] });
     },
   });
 
-  const statusBadgeVariant = (status: string) => {
-    if (status === "active") return "success" as const;
-    if (status === "pending") return "warning" as const;
-    return "muted" as const;
-  };
+  const LIMIT = 20;
+  const totalPages = data ? Math.ceil(data.total / LIMIT) : 1;
 
   return (
     <div className="space-y-4">
+      <div>
+        <h2 className="text-xl font-semibold">Businesses</h2>
+        <p className="text-sm text-muted-foreground">
+          {data?.total ?? 0} total businesses
+        </p>
+      </div>
+
       {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder="Search businesses..."
           value={search}
@@ -89,128 +109,166 @@ export default function AdminBusinessesPage() {
             setSearch(e.target.value);
             setPage(1);
           }}
-          className="h-12 pl-10 text-base"
+          className="pl-9"
         />
       </div>
 
-      {/* Loading */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="size-6 animate-spin text-muted-foreground" />
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {data?.data.map((biz: AdminBusiness) => (
-            <div
-              key={biz.id}
-              className="rounded-2xl border border-border bg-card p-4"
-            >
-              {/* Header row */}
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="truncate font-medium">{biz.name}</span>
-                    <Badge
-                      variant={statusBadgeVariant(biz.status)}
-                      className="shrink-0 capitalize"
-                    >
-                      {biz.status}
-                    </Badge>
-                    {biz.featured && (
-                      <Badge className="shrink-0 gap-1 bg-yellow-500/10 text-yellow-600">
-                        <Star className="size-3 fill-yellow-500 text-yellow-500" />
-                        Featured
+      {/* Table */}
+      <div className="rounded-lg border bg-card">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10"></TableHead>
+                <TableHead>Business</TableHead>
+                <TableHead>City</TableHead>
+                <TableHead>Owner</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Featured</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data?.data.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="py-16 text-center text-muted-foreground">
+                    No businesses found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                data?.data.map((biz: AdminBusiness) => (
+                  <TableRow key={biz.id}>
+                    <TableCell className="pr-0">
+                      <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-secondary text-xs font-bold overflow-hidden">
+                        {biz.logoUrl ? (
+                          <img src={biz.logoUrl} alt="" className="size-full object-cover" />
+                        ) : (
+                          <span className="text-muted-foreground">{getInitials(biz.name)}</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-medium">{biz.name}</TableCell>
+                    <TableCell className="text-muted-foreground">{biz.city}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {biz.owner.displayName ?? biz.owner.email}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={statusVariant(biz.status)} className="capitalize">
+                        {biz.status}
                       </Badge>
-                    )}
-                  </div>
-                  <p className="mt-0.5 text-sm text-muted-foreground">
-                    {biz.city}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Owner: {biz.owner.displayName ?? biz.owner.email}
-                  </p>
-                </div>
-
-                {/* Feature toggle */}
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="size-10 shrink-0"
-                  onClick={() =>
-                    featureMutation.mutate({
-                      id: biz.id,
-                      featured: !biz.featured,
-                    })
-                  }
-                  disabled={featureMutation.isPending}
-                >
-                  <Star
-                    className={cn(
-                      "size-4",
-                      biz.featured
-                        ? "fill-yellow-500 text-yellow-500"
-                        : "text-muted-foreground",
-                    )}
-                  />
-                </Button>
-              </div>
-
-              {/* Actions */}
-              <div className="mt-3 flex gap-2">
-                {biz.status === "pending" && (
-                  <Button
-                    variant="outline"
-                    className="h-10 flex-1"
-                    onClick={() => approveMutation.mutate(biz.id)}
-                    disabled={approveMutation.isPending}
-                  >
-                    <CheckCircle className="mr-1.5 size-4" />
-                    Approve
-                  </Button>
-                )}
-                {biz.status === "active" && (
-                  <Button
-                    variant="destructive"
-                    className="h-10 flex-1"
-                    onClick={() => suspendMutation.mutate(biz.id)}
-                    disabled={suspendMutation.isPending}
-                  >
-                    <XCircle className="mr-1.5 size-4" />
-                    Suspend
-                  </Button>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {data?.data.length === 0 && (
-            <div className="py-16 text-center text-sm text-muted-foreground">
-              No businesses found.
-            </div>
-          )}
-        </div>
-      )}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-7"
+                        onClick={() =>
+                          featureMutation.mutate({ id: biz.id, featured: !biz.featured })
+                        }
+                        disabled={featureMutation.isPending}
+                        title={biz.featured ? "Unfeature" : "Feature"}
+                      >
+                        <Star
+                          className={cn(
+                            "size-4",
+                            biz.featured
+                              ? "fill-yellow-500 text-yellow-500"
+                              : "text-muted-foreground",
+                          )}
+                        />
+                      </Button>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {new Date(biz.createdAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1.5">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-7"
+                          title="Copy ID"
+                          onClick={() => {
+                            void navigator.clipboard.writeText(biz.id);
+                            toast.success("ID copied");
+                          }}
+                        >
+                          <Copy className="size-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-7"
+                          title="Open business page"
+                          asChild
+                        >
+                          <Link href={`/business/${biz.slug}`} target="_blank">
+                            <ExternalLink className="size-3.5" />
+                          </Link>
+                        </Button>
+                        {biz.status === "pending" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => approveMutation.mutate(biz.id)}
+                            disabled={approveMutation.isPending}
+                          >
+                            <CheckCircle className="mr-1.5 size-3.5" />
+                            Approve
+                          </Button>
+                        )}
+                        {biz.status === "active" && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => suspendMutation.mutate(biz.id)}
+                            disabled={suspendMutation.isPending}
+                          >
+                            <XCircle className="mr-1.5 size-3.5" />
+                            Suspend
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        )}
+      </div>
 
       {/* Pagination */}
       {(data?.hasNextPage || page > 1) && (
-        <div className="flex gap-3">
-          {page > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Page {page} of {totalPages}
+          </p>
+          <div className="flex gap-2">
             <Button
               variant="outline"
-              className="h-10 flex-1"
+              size="sm"
               onClick={() => setPage((p) => p - 1)}
+              disabled={page === 1}
             >
-              Prev
+              <ChevronLeft className="size-4" />
+              Previous
             </Button>
-          )}
-          {data?.hasNextPage && (
             <Button
-              className="h-10 flex-1"
+              variant="outline"
+              size="sm"
               onClick={() => setPage((p) => p + 1)}
+              disabled={!data?.hasNextPage}
             >
               Next
+              <ChevronRight className="size-4" />
             </Button>
-          )}
+          </div>
         </div>
       )}
     </div>

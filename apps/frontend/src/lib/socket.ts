@@ -8,6 +8,7 @@ export function getSocket(): Socket {
     socketInstance = io(`${getBackendUrl()}/queue`, {
       withCredentials: true,
       autoConnect: false,
+      transports: ["websocket"],
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,

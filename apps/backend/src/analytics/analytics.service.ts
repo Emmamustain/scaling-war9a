@@ -144,7 +144,8 @@ export class AnalyticsService {
     return {
       totalUsers: totalUsers[0]?.count ?? 0,
       totalBusinesses: totalBusinesses[0]?.count ?? 0,
-      totalEntriesToday: totalEntriesToday[0]?.count ?? 0,
+      entriesToday: totalEntriesToday[0]?.count ?? 0,
+      activeBusinesses: totalBusinesses[0]?.count ?? 0,
       topCities: topCities.rows,
       topCategories: topCategories.rows,
     };

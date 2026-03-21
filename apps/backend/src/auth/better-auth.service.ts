@@ -87,11 +87,16 @@ export class BetterAuthService {
   private createAuthInstance(): BetterAuthInstance {
     const rt = this.getRuntime();
 
+    const isDev = this.configService.get<string>('NODE_ENV') !== 'production';
+
     return rt.betterAuth({
       baseURL: this.baseURL,
       basePath: '/auth',
       secret: this.secret,
       trustedOrigins: this.trustedOrigins,
+      rateLimit: {
+        enabled: !isDev,
+      },
       database: rt.drizzleAdapter(this.db, {
         provider: 'pg',
         usePlural: false,

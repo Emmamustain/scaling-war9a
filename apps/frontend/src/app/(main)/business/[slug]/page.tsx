@@ -1,8 +1,10 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchApi } from "@/lib/fetch";
+import { useQueueStore } from "@/stores/queue.store";
+import { getSocket } from "@/lib/socket";
 import { useAuthStore } from "@/stores/auth.store";
 import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronLeft, Clock, Users, Frown, Smile, ThumbsDown, ThumbsUp, Share2 } from "lucide-react";
@@ -81,6 +83,7 @@ export default function BusinessPage({
   const { isAuthenticated, user } = useAuthStore();
   const queryClient = useQueryClient();
   const router = useRouter();
+  const { connect, subscribeToService, unsubscribeFromService } = useQueueStore();
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
   const [forfeitEntry, setForfeitEntry] = useState<{
@@ -102,9 +105,8 @@ export default function BusinessPage({
   const { data: queue } = useQuery({
     queryKey: ["queue-entries", serviceId],
     queryFn: () =>
-      fetchApi<QueueEntry[]>(`/queue/service/${serviceId}/entries`),
+      fetchApi<{ entries: QueueEntry[]; total: number; hasMore: boolean }>(`/queue/service/${serviceId}/entries`),
     enabled: !!serviceId,
-    refetchInterval: 10000,
   });
 
   const { data: serviceStatus } = useQuery({
@@ -112,11 +114,38 @@ export default function BusinessPage({
     queryFn: () =>
       fetchApi<ServiceStatus>(`/queue/service/${serviceId}/status`),
     enabled: !!serviceId,
-    refetchInterval: 15000,
   });
 
-  const myEntry = user && queue?.find((e: QueueEntry) => e.user?.id === user.id);
-  const waitingQueue = queue?.filter((e: QueueEntry) => e.status === "waiting") ?? [];
+  // Socket: subscribe when a service is selected, invalidate queries on events
+  useEffect(() => {
+    if (!serviceId) return;
+    connect();
+    subscribeToService(serviceId);
+    const socket = getSocket();
+    const handleSnapshot = (data: { serviceId: string; entries: QueueEntry[]; total: number; hasMore: boolean }) => {
+      if (data.serviceId === serviceId) {
+        queryClient.setQueryData(["queue-entries", serviceId], {
+          entries: data.entries,
+          total: data.total,
+          hasMore: data.hasMore,
+        });
+      }
+    };
+    const invalidateStatus = () =>
+      void queryClient.invalidateQueries({ queryKey: ["service-status", serviceId] });
+    socket.on("queue:snapshot", handleSnapshot);
+    socket.on("queue:status-change", invalidateStatus);
+    return () => {
+      unsubscribeFromService(serviceId);
+      socket.off("queue:snapshot", handleSnapshot);
+      socket.off("queue:status-change", invalidateStatus);
+    };
+  }, [serviceId, connect, subscribeToService, unsubscribeFromService, queryClient]);
+
+  const myEntry = user && queue?.entries.find((e: QueueEntry) => e.user?.id === user.id);
+  const waitingQueue = queue?.entries.filter((e: QueueEntry) => e.status === "waiting") ?? [];
+  const queueTotal = queue?.total ?? 0;
+  const queueHasMore = queue?.hasMore ?? false;
 
   const joinMutation = useMutation({
     mutationFn: () =>
@@ -322,8 +351,8 @@ export default function BusinessPage({
               <ActionQueueCard
                 position={
                   myEntry
-                    ? (waitingQueue.findIndex((e: QueueEntry) => e.id === myEntry.id) + 1) || 1
-                    : waitingQueue.length + 1
+                    ? (myEntry.position ?? 1)
+                    : queueTotal
                 }
                 alreadyQueued={!!myEntry}
                 isPending={joinMutation.isPending || leaveMutation.isPending}
@@ -337,15 +366,29 @@ export default function BusinessPage({
               />
 
               {waitingQueue.length > 0 ? (
-                waitingQueue.map((entry: QueueEntry, index: number) => (
-                  <QueueCard
-                    key={entry.id}
-                    displayName={entry.user?.displayName ?? entry.user?.username ?? "Anonymous"}
-                    position={index + 1}
-                    isPresent={entry.present}
-                    highlight={entry.user?.id === user?.id}
-                  />
-                ))
+                <>
+                  {waitingQueue.map((entry: QueueEntry) => (
+                    <QueueCard
+                      key={entry.id}
+                      displayName={entry.user?.displayName ?? entry.user?.username ?? "Anonymous"}
+                      position={entry.position ?? 0}
+                      isPresent={entry.present}
+                      highlight={entry.user?.id === user?.id}
+                    />
+                  ))}
+                  {queueHasMore && (
+                    <div className="flex flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border bg-card/50 py-6 text-center md:min-w-[280px]">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        +{queueTotal - waitingQueue.length} more
+                      </p>
+                      {myEntry && !waitingQueue.find((e: QueueEntry) => e.id === myEntry.id) && (
+                        <p className="text-xs text-muted-foreground/70">
+                          You&apos;re #{myEntry.position ?? "?"} in line
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card py-8 md:h-[157px] md:min-w-[280px] md:rounded md:border-0 md:bg-white md:dark:bg-neutral-700">
                   <Smile size={48} className="text-muted-foreground/40 md:mb-2" />

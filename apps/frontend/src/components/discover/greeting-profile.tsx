@@ -26,11 +26,12 @@ export default function GreetingProfile() {
   return (
     <div className="mb-6 mt-4 flex items-center justify-between md:mb-16 md:mt-24">
       <div className="flex items-center gap-3">
-        <div className="h-[48px] w-[48px] overflow-hidden rounded-full bg-neutral-900 dark:bg-neutral-50 md:h-[60px] md:w-[60px]">
-          <MinidenticonImg
-            username={displayName}
-            className="scale-75"
-          />
+        <div className="h-[48px] w-[48px] overflow-hidden rounded-full md:h-[60px] md:w-[60px]">
+          {user?.avatarUrl ? (
+            <img src={user.avatarUrl} alt={displayName} className="h-full w-full object-cover" />
+          ) : (
+            <MinidenticonImg username={displayName} />
+          )}
         </div>
         <div>
           <h1 className="text-lg font-semibold md:text-xl">

@@ -35,7 +35,7 @@ export default function QueueCard({
       {/* Avatar + Name */}
       <div className="flex w-full items-center gap-4 rounded p-4">
         <div className="h-[85px] w-[85px] shrink-0 overflow-hidden rounded-full bg-neutral-900 dark:bg-neutral-50">
-          <MinidenticonImg username={displayName || "anon"} className="scale-75" />
+          <MinidenticonImg username={displayName || "anon"} />
         </div>
         <p className="text-lg text-black dark:text-white">{displayName || "Anonymous"}</p>
       </div>

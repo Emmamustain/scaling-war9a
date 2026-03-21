@@ -6,9 +6,17 @@ import { fetchApi } from "@/lib/fetch";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Search, Ban, CheckCircle, Loader2 } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Search, Ban, CheckCircle, Loader2, ChevronLeft, ChevronRight, Copy, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 type AdminUser = {
   id: string;
@@ -17,6 +25,7 @@ type AdminUser = {
   username: string;
   role: string;
   isBanned: boolean;
+  avatarUrl: string | null;
   createdAt: string;
 };
 
@@ -61,122 +70,173 @@ export default function AdminUsersPage() {
     },
   });
 
+  const LIMIT = 20;
+  const totalPages = data ? Math.ceil(data.total / LIMIT) : 1;
+
   return (
     <div className="space-y-4">
+      <div>
+        <h2 className="text-xl font-semibold">Users</h2>
+        <p className="text-sm text-muted-foreground">
+          {data?.total ?? 0} total users
+        </p>
+      </div>
+
       {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Search users..."
+          placeholder="Search by name or email..."
           value={search}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
             setSearch(e.target.value);
             setPage(1);
           }}
-          className="h-12 pl-10 text-base"
+          className="pl-9"
         />
       </div>
 
-      {/* Loading */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="size-6 animate-spin text-muted-foreground" />
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {data?.data.map((user: AdminUser) => (
-            <div
-              key={user.id}
-              className="rounded-2xl border border-border bg-card p-4"
-            >
-              <div className="flex items-start gap-3">
-                {/* Avatar initial */}
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                  {(user.displayName ?? user.username).charAt(0).toUpperCase()}
-                </div>
-
-                {/* Info */}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="truncate font-medium">
-                      {user.displayName ?? user.username}
-                    </span>
-                    <Badge variant="secondary" className="shrink-0 capitalize">
-                      {user.role}
-                    </Badge>
-                    <Badge
-                      variant={user.isBanned ? "destructive" : "success"}
-                      className="shrink-0"
-                    >
-                      {user.isBanned ? "Banned" : "Active"}
-                    </Badge>
-                  </div>
-                  <p className="truncate text-sm text-muted-foreground">
-                    {user.email}
-                  </p>
-                </div>
-              </div>
-
-              {/* Action */}
-              <div className="mt-3">
-                {user.isBanned ? (
-                  <Button
-                    variant="outline"
-                    className="h-10 w-full"
-                    onClick={() => unbanMutation.mutate(user.id)}
-                    disabled={unbanMutation.isPending}
-                  >
-                    <CheckCircle className="mr-1.5 size-4" />
-                    Unban
-                  </Button>
-                ) : (
-                  <Button
-                    variant="destructive"
-                    className="h-10 w-full"
-                    onClick={() =>
-                      banMutation.mutate({
-                        userId: user.id,
-                        reason: "Admin action",
-                      })
-                    }
-                    disabled={banMutation.isPending}
-                  >
-                    <Ban className="mr-1.5 size-4" />
-                    Ban
-                  </Button>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {data?.data.length === 0 && (
-            <div className="py-16 text-center text-sm text-muted-foreground">
-              No users found.
-            </div>
-          )}
-        </div>
-      )}
+      {/* Table */}
+      <div className="rounded-lg border bg-card">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10"></TableHead>
+                <TableHead>User</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Joined</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data?.data.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="py-16 text-center text-muted-foreground">
+                    No users found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                data?.data.map((user: AdminUser) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="pr-0">
+                      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary overflow-hidden">
+                        {user.avatarUrl ? (
+                          <img src={user.avatarUrl} alt="" className="size-full object-cover" />
+                        ) : (
+                          (user.displayName ?? user.username).charAt(0).toUpperCase()
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="font-medium">
+                        {user.displayName ?? user.username}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{user.email}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="capitalize">
+                        {user.role}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={user.isBanned ? "destructive" : "success"}>
+                        {user.isBanned ? "Banned" : "Active"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {new Date(user.createdAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1.5">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-7"
+                          title="Copy ID"
+                          onClick={() => {
+                            void navigator.clipboard.writeText(user.id);
+                            toast.success("ID copied");
+                          }}
+                        >
+                          <Copy className="size-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-7"
+                          title="View profile"
+                          asChild
+                        >
+                          <Link href={`/profile/${user.username}`} target="_blank">
+                            <ExternalLink className="size-3.5" />
+                          </Link>
+                        </Button>
+                        {user.isBanned ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => unbanMutation.mutate(user.id)}
+                            disabled={unbanMutation.isPending}
+                          >
+                            <CheckCircle className="mr-1.5 size-3.5" />
+                            Unban
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() =>
+                              banMutation.mutate({ userId: user.id, reason: "Admin action" })
+                            }
+                            disabled={banMutation.isPending}
+                          >
+                            <Ban className="mr-1.5 size-3.5" />
+                            Ban
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        )}
+      </div>
 
       {/* Pagination */}
       {(data?.hasNextPage || page > 1) && (
-        <div className="flex gap-3">
-          {page > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Page {page} of {totalPages}
+          </p>
+          <div className="flex gap-2">
             <Button
               variant="outline"
-              className="h-10 flex-1"
+              size="sm"
               onClick={() => setPage((p) => p - 1)}
+              disabled={page === 1}
             >
-              Prev
+              <ChevronLeft className="size-4" />
+              Previous
             </Button>
-          )}
-          {data?.hasNextPage && (
             <Button
-              className="h-10 flex-1"
+              variant="outline"
+              size="sm"
               onClick={() => setPage((p) => p + 1)}
+              disabled={!data?.hasNextPage}
             >
               Next
+              <ChevronRight className="size-4" />
             </Button>
-          )}
+          </div>
         </div>
       )}
     </div>
