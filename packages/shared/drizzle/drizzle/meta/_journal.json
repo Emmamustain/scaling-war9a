@@ -8,6 +8,13 @@
       "when": 1773532845168,
       "tag": "0000_clammy_zodiak",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1774132173703,
+      "tag": "0001_clever_silvermane",
+      "breakpoints": true
     }
   ]
 }
